@@ -1,12 +1,25 @@
 #include <iostream>
 #include <vector>
 
-class synapse{
+class LowSyn{//list of synapses to lower level of each column
     double conds;//connectedness
     std::vector<size_t> ConLow;//connections to lower layer
-    std::vector<size_t> ConHor;//connections within this layer
-    std::vector<size_t> ConUp;//connections to upper layer
 
+};
+
+class column{
+private:
+    std::vector<cell> CellList;//List of cells in the colummn
+    bool active;
+    std::vector<std::vector<LowSyn>> PotSyn;//list of potential synapses
+    std::vector<std::vector<LowSyn>> ConSyn;//list of "connected" synapses
+
+};
+
+class cell{
+    //dendrites; structure still to be found
+    bool active;//representing input
+    bool expect;//predicts input due to past experience and dendrite information
 };
 
 class layer{
@@ -16,9 +29,8 @@ private:
                                 //columns of the last few time steps
     std::vector<std::vector<bool>> ActLog;//activity log
     //records the activity of all columns over the last few steps
-    std::vector<std::vector<synapse>> PotSyn;//list of potential synapses
+    std::vector<column> ColumnList;//columns in the layer
     float ConThr;//threshhold for synapses in order to be "connected"
-    std::vector<std::vector<synapse>> ConSyn;//list of "connected" synapses
 
     //maybe reconsider connectedness mechanism
     double CondsInc;//connectedness increment
@@ -29,7 +41,6 @@ private:
     //a measure of how many columns should be active on average
     //probably unnecessary consider changing inhibition
     size_t InhiRad;//inhibition radius used to update neighbors
-    std::vector<std::vector<size_t>> DistMat;//distance matrix, used to update neighbors
     std::vector<std::vector<size_t>> neighbors;//list of neighbors for each column, consider changing inhibition
     size_t MinOverlap;//minimum overlap
     //end of inhibition stuff
