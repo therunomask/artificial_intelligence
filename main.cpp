@@ -1,26 +1,48 @@
 #include <iostream>
 #include <vector>
 
+class brain;
+class layer;
+class column;
+class LowSyn;
+class cell;
+class segment;
+
 class LowSyn{//list of synapses to lower level of each column
-    double conds;//connectedness
+    std::vector<double> conds;//connectedness
     std::vector<size_t> ConLow;//connections to lower layer
 
 };
 
-class column{
+class segment{
+private:
+    std::vector<cell*> CellAddr;//pointer to adresses of cells in the segment
+    std::vector<double> CellCon;//connectedness values of the synapses in the segment
+    //length of those vectors must be the same!!
+    bool EndOfSeq;//true if predictions due to this segment
+            //should activate the column in question in the next
+            //timestep rather than predicting prediction of activation
+};
+class cell{
+    std::vector<segment> SegList;//list of segments (net of horizontal
+            // connections) of this cell
+    bool active;//representing input
+    bool expect;//predicts input due to past experience and dendrite information
+};
+
+class column{//contains connections to input and list of cells
+    //that contain lateral connections to predict activation of the column
 private:
     std::vector<cell> CellList;//List of cells in the colummn
     bool active;
     std::vector<std::vector<LowSyn>> PotSyn;//list of potential synapses
-    std::vector<std::vector<LowSyn>> ConSyn;//list of "connected" synapses
+    std::vector<std::vector<LowSyn*>> ConSyn;//list of pointers to "connected" synapses
 
 };
 
-class cell{
-    //dendrites; structure still to be found
-    bool active;//representing input
-    bool expect;//predicts input due to past experience and dendrite information
-};
+
+
+
 
 class layer{
 private:
