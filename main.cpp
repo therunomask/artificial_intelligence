@@ -1,15 +1,19 @@
 #include <iostream>
-#include<vector>
+#include <vector>
 
 class synapse{
     double conds;//connectedness
-    std::vector<size_t> ConIn;//connections to inputlayer
+    std::vector<size_t> ConLow;//connections to lower layer
+    std::vector<size_t> ConHor;//connections within this layer
+    std::vector<size_t> ConUp;//connections to upper layer
+
 };
 
-class level{
+class layer{
 private:
     const size_t Num_Columns;
-    std::vector<size_t> ActColumns;//active columns
+    std::vector<size_t> ActColumns;//active columns; maybe turn into array of active
+                                //columns of the last few time steps
     std::vector<std::vector<bool>> ActLog;//activity log
     //records the activity of all columns over the last few steps
     std::vector<std::vector<synapse>> PotSyn;//list of potential synapses
@@ -30,19 +34,34 @@ private:
     size_t MinOverlap;//minimum overlap
     //end of inhibition stuff
 
+    std::vector<double> boost();//vector of boost values increases
+                        //activity of columns which are not active enough
+
+
 
 
 public:
     //reconsider private/public position of memberfunctions!
     double overlap(std::vector<bool> input,size_t column);//maybe returning a vector and omitting second arguent is smarter
     //computes overlap of a particular column with given input
-    std::vector<double> boost();
+
+    void updateBoost(std::vector<bool> input);
+    //checks if activity log agrees with the wanted average activity
+
+    void updateSyn(std::vector<bool> input);
+    //updates all the synapses of all the cells in all the columns
+        //all synapses in active columns get reinforced if they were
+        //active right before activation of the corresponding column
+        //all the nonactive synapses in active columns are decremented
+        //---- the synapses which in cells whose overlap with input
+        //is lower then proper, are uniformly reinforced as well
+
 };
 
 class brain{
 private:
     const size_t NumLevels;
-    const std::vector<level> ListLevels;
+    const std::vector<layer> ListLevels;
 
 };
 
