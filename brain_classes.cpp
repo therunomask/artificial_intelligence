@@ -1,4 +1,4 @@
-#include "ai_header.h"
+#include "brain_header.h"
 
 void segment::UpdateCon(std::vector<const cell*> winners ){//increase connectedness
     //of winners, decrease connectedness
