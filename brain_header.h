@@ -1,5 +1,5 @@
-#ifndef AI_HEADER_H
-#define AI_HEADER_H
+#ifndef BRAIN_HEADER_H
+#define BRAIN_HEADER_H
 
 class brain;
 class layer;
@@ -55,11 +55,9 @@ private:
 };
 
 
-
-
-
-class layer{
+class layer{//write a derived class lowest_layer
 private:
+    const layer* p_lower_level;//pointer to lower layer to receive input
     const size_t Num_Columns;
     std::vector<size_t> ActColumns;//active columns; maybe turn into array of active
                                 //columns of the last few time steps
@@ -83,11 +81,13 @@ private:
 
     std::vector<double> boost();//vector of boost values increases
                         //activity of columns which are not active enough
-
-
-
-
 public:
+    std::vector<bool> current_activation( void );//computes current activation-
+                            //distribution of culumns. triggers same function of
+                            //lower layer to use as input
+                        //somehow propagate expected activation of lower level to it!!
+
+
     //reconsider private/public position of memberfunctions!
     double overlap(std::vector<bool> input,size_t column);//maybe returning a vector and omitting second arguent is smarter
     //computes overlap of a particular column with given input
@@ -95,14 +95,28 @@ public:
     void updateBoost(std::vector<bool> input);
     //checks if activity log agrees with the wanted average activity
 
-    void updateSyn(std::vector<bool> input);
-    //updates all the synapses of all the cells in all the columns
+    void updateLow(std::vector<bool> input);
+    //updates all the synapses of all the columns to the lower level
+        //due to input from lower level
         //all synapses in active columns get reinforced if they were
         //active right before activation of the corresponding column
         //all the nonactive synapses in active columns are decremented
-        //---- the synapses which in cells whose overlap with input
-        //is lower then proper, are uniformly reinforced as well
+        //---- the synapses which belong to cells whose overlap with input
+        //is lower than proper, are uniformly reinforced as well
 
+
+    void updateSegPred();//needs activation pattern of current timestep
+            //updates the segments of the cells of all columns
+            //randomly adds cells to segments with
+            //nonpredicting synapses and deletes these
+            // due to prediction ->
+            //case 1: correct prediction:
+            //add random new segments and reinforce
+            //correctly predicting segments, degrade other segments
+            //case 2: unpredicted activation:
+            //1. find cell within active column whose segments
+            // fit activation pattern of the layer of last timestep best
+            //2. designate this segment to be predicting activation and reinforce it
 };
 
 
@@ -113,4 +127,4 @@ private:
 
 };
 
-#endif // AI_HEADER_H
+#endif // BRAIN_HEADER_H
