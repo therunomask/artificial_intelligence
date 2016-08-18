@@ -1,6 +1,9 @@
 #ifndef BRAIN_HEADER_H
 #define BRAIN_HEADER_H
 
+#include<vector>
+#include<deque>
+
 class brain;
 class layer;
 class column;
@@ -52,6 +55,8 @@ private:
     std::vector<std::vector<LowSyn>> PotSyn;//list of potential synapses
     std::vector<std::vector<LowSyn*>> ConSyn;//list of pointers to "connected" synapses
 
+public:
+    bool feed_input(std::vector<bool> input);//returnes updated activation
 };
 
 
@@ -82,12 +87,14 @@ private:
     std::vector<double> boost();//vector of boost values increases
                         //activity of columns which are not active enough
 public:
-    std::vector<bool> current_activation( void );//computes current activation-
+    std::vector<bool> current_activation( void );//triggers prediction of lower level
+                            //computes current activation-
                             //distribution of culumns. triggers same function of
                             //lower layer to use as input
                         //somehow propagate expected activation of lower level to it!!
-
-
+    virtual std::vector<bool> current_prediction( void );//triggers activation of same level
+        //is "virtual" because lowest_layer needs to redefine this function
+    
     //reconsider private/public position of memberfunctions!
     double overlap(std::vector<bool> input,size_t column);//maybe returning a vector and omitting second arguent is smarter
     //computes overlap of a particular column with given input
