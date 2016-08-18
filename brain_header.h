@@ -13,12 +13,6 @@ class segment;
 
 
 
-class LowSyn{//list of synapses to lower level of each column
-    std::vector<double> conds;//connectedness
-    std::vector<size_t> ConLow;//connections to lower layer
-
-};
-
 class segment{
 private:
     std::deque<const cell*> CellAddr;//pointer to adresses of cells in the segment
@@ -52,17 +46,21 @@ class column{//contains connections to input and list of cells
 private:
     std::vector<cell> CellList;//List of cells in the colummn
     bool active;
-    std::vector<std::vector<LowSyn>> PotSyn;//list of potential synapses
-    std::vector<std::vector<LowSyn*>> ConSyn;//list of pointers to "connected" synapses
+    static const int MinOverlap=123456789;//find meaningful value
+
+    std::vector<std::vector<size_t>> PotSyn;//list of potential synapses
+    std::vector<double> connectedness;//connectedness
+                //conds.size()== PotSyn.size()    !!!!!!
+    std::vector<size_t*> ConnedSynapses;//list of pointers to "connected" synapses
 
 public:
-    bool feed_input(std::vector<bool> input);//returnes updated activation
+    int feed_input(std::vector<bool> input);//computes overlap with input
 };
 
 
 class layer{//write a derived class lowest_layer
 private:
-    const layer* p_lower_level;//pointer to lower layer to receive input
+     layer* const p_lower_level;//pointer to lower layer to receive input
     const size_t Num_Columns;
     std::vector<size_t> ActColumns;//active columns; maybe turn into array of active
                                 //columns of the last few time steps
@@ -87,7 +85,7 @@ private:
     std::vector<double> boost();//vector of boost values increases
                         //activity of columns which are not active enough
 public:
-    std::vector<bool> current_activation( void );//triggers prediction of lower level
+     std::vector<bool> current_activation( void );//triggers prediction of lower level
                             //computes current activation-
                             //distribution of culumns. triggers same function of
                             //lower layer to use as input

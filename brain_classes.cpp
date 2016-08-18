@@ -9,7 +9,7 @@ void segment::UpdateCon(std::vector<const cell*> winners ){//increase connectedn
 }
 
 
-std::vector<bool> layer::current_activation(){
+  std::vector<bool> layer::current_activation(void){
     std::vector<bool>input( p_lower_level->current_prediction());
         //trigger prediction evaluation of lower levels while optaining input
         //
@@ -21,3 +21,17 @@ std::vector<bool> layer::current_activation(){
         activation.push_back(pillar.feed_input(input));
     }
 }
+
+int column::feed_input(std::vector<bool> input){//computes overlap with input
+    int overlap=0;
+    for(auto &syn : ConnedSynapses){
+            overlap+= input[*syn];
+    }
+    if(overlap<MinOverlap){
+        overlap=0;
+    }
+    return overlap;
+}
+
+
+
