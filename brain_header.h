@@ -53,8 +53,13 @@ private:
                 //conds.size()== PotSyn.size()    !!!!!!
     std::vector<size_t*> ConnedSynapses;//list of pointers to "connected" synapses
 
+
 public:
-    int feed_input(std::vector<bool> input);//computes overlap with input
+    double feed_input(std::vector<bool> input);//computes activation caused by input
+    //connections count only as "connected" or "not connected" no further weights
+    double boosting;//boost value increases
+                        //activity of columns which are not active enough
+
 };
 
 
@@ -74,7 +79,8 @@ private:
     double CondsDec;//connectedness decrement
 
     //stuff for inhibition
-    size_t DesLocAct;//desired local activity
+    size_t DesiredLocalActivity;//desired local activity;
+    //less than ColumnList.size()!!
     //a measure of how many columns should be active on average
     //probably unnecessary consider changing inhibition
     size_t InhiRad;//inhibition radius used to update neighbors
@@ -82,8 +88,6 @@ private:
     size_t MinOverlap;//minimum overlap
     //end of inhibition stuff
 
-    std::vector<double> boost();//vector of boost values increases
-                        //activity of columns which are not active enough
 public:
      std::vector<bool> current_activation( void );//triggers prediction of lower level
                             //computes current activation-
