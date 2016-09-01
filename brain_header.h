@@ -45,20 +45,24 @@ class column{//contains connections to input and list of cells
     //that contain lateral connections to predict activation of the column
 private:
     std::vector<cell> CellList;//List of cells in the colummn
-    bool active;
+    constexpr static double Average_Exp= 99/100.0; //Take average of overlap
+              //over last 20 values
+    double Overlap_Average=100;//should be active every 5th?! time
+                //pick meaningful average value as initial value
     static const int MinOverlap=123456789;//find meaningful value
 
-    std::vector<std::vector<size_t>> PotSyn;//list of potential synapses
-    std::vector<double> connectedness;//connectedness
-                //conds.size()== PotSyn.size()    !!!!!!
-    std::vector<size_t*> ConnedSynapses;//list of pointers to "connected" synapses
-
+    std::vector<size_t> ConnectedSynapses;//list of indices of "connected" synapses
 
 public:
-    double feed_input(std::vector<bool> input);//computes activation caused by input
+    std::vector<double> connectedness;//connectedness
+
+    double feed_input(const std::vector<bool> &input);//computes activation caused by input
     //connections count only as "connected" or "not connected" no further weights
     double boosting;//boost value increases
                         //activity of columns which are not active enough
+    double tell_overlap_average(void){//return running average overlap
+        return Overlap_Average;
+    }
 
 };
 
@@ -69,14 +73,20 @@ private:
     const size_t Num_Columns;
     std::vector<size_t> ActColumns;//active columns; maybe turn into array of active
                                 //columns of the last few time steps
-    std::vector<std::vector<bool>> ActLog;//activity log
-    //records the activity of all columns over the last few steps
+    std::vector<double> ActivityLog;//activity log
+    //initialize to (Num_Columns,100)!
+    //running average of activity of cells
+    const double AverageExp=0.99;//parameter in running average;
+    // find meaningful  value  ^  !
     std::vector<column> ColumnList;//columns in the layer
     float ConThr;//threshhold for synapses in order to be "connected"
 
     //maybe reconsider connectedness mechanism
-    double CondsInc;//connectedness increment
-    double CondsDec;//connectedness decrement
+    const double CondsInc=0.01;//connectedness increment
+    const double CondsDec=0.01;//connectedness decrement
+    constexpr static double AverageOverlapMin = 0.01;
+    constexpr static double SpecialOverlapIncrement= 0.1;
+    //find meaningful values!!
 
     //stuff for inhibition
     size_t DesiredLocalActivity;//desired local activity;
@@ -88,8 +98,10 @@ private:
     size_t MinOverlap;//minimum overlap
     //end of inhibition stuff
 
+    void Update_Synapses(void);
+
 public:
-     std::vector<bool> current_activation( void );//triggers prediction of lower level
+     std::vector<bool> activation_learning( void );//triggers prediction of lower level
                             //computes current activation-
                             //distribution of culumns. triggers same function of
                             //lower layer to use as input
