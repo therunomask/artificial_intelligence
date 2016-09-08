@@ -71,7 +71,7 @@ std::vector<bool> layer::activation_learning(void){
     int Max_overlap=0;
 
     double MaxActivity = (*pActivity_max);
-    for(size_t i;i<Num_Columns;++i){
+    for(size_t i=0;i<Num_Columns;++i){
         //arbitrary boost function!!
         ColumnList[i].boosting=3.0-2.0*(ActivityLog[i]/MaxActivity);
         //optimize w.r.t. this function!!
@@ -83,13 +83,14 @@ std::vector<bool> layer::activation_learning(void){
     Max_overlap*=AverageOverlapMin;//otimize magic number!
 
     for(auto& pillar : ColumnList){
-        if(pillar.tell_overlap_average()<Max_overlap){
+        //strenthen pillars that never overlap uniformly
+        if(pillar.tell_overlap_average() < Max_overlap){
             for(auto& con: pillar.connectedness){
                 con+=SpecialOverlapIncrement;
             }
         }
 
-    }
+    }//end of learning
 
     return activity;
 }
@@ -108,7 +109,47 @@ double column::feed_input(const std::vector<bool>& input){
     return overlap*boosting;
 }
 
+std::vector<bool> layer::current_prediction( void ){
+        //triggers activation of same level
 
+    //check if a cell predicted activation of a column
+    //if so, change its synapses.
+    //if not choose cell to predict same activation in the future
+    for(auto& active_pillar: ActColumns){
+        bool predicted=false;//dummy variable checks of predicting cell is found
+        bool is_chosen=false;//also dummy
+        for(auto& cell: ColumnList[active_pillar].CellList){
+            if(cell.expect==true){
+                segment* s=NULL;
+                //find segment of cell that signified the end of a sequence
+                for(auto& active_segment: cell.ActiveSegments[1]){
+                    if(active_segment->EndOfSeq==true){
+                        s=active_segment;
+                        break;
+                    }
+                }//if no such segment exists; continue with next cell
+                if( s==NULL){
+                    continue;
+                }
+                predicted=true;
+                cell.active=true;
+                //choose current cell to be the learning cell if it
+                //is connected to a cell with learn state on
+                for(auto& connected_cells:s->CellAddr){
+                    if(connected_cells->learn[1]==true){
+                        cell.learn[0]=true;
+                        is_chosen=true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
 
+    std::vector<bool> activation_prediction;
+    //set for all cells in all columns active, expect, learn=false
+    //for next timestep!
+    return activation_prediction;
+}
 
 

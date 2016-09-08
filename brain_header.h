@@ -15,16 +15,17 @@ class segment;
 
 class segment{
 private:
-    std::deque<const cell*> CellAddr;//pointer to adresses of cells in the segment
     std::deque<double> CellCon;//connectedness values of the synapses in the segment
     //length of those vectors must be the same!!
     const static double InitCon;//initial connectedness for new
             //cells in the segment
+    bool active;//segment is active if enough connected cells are active
+public:
+    std::deque< cell*> CellAddr;//pointer to adresses of cells in the segment
     bool EndOfSeq;//true if predictions due to this segment
             //should activate the column in question in the next
             //timestep rather than predicting prediction of activation
-public:
-    void AddCell(const cell*  const newcell){//adds new cell to segment with
+    void AddCell( cell*  const newcell){//adds new cell to segment with
             //standard connectedness close to disconnection
         CellAddr.push_back(newcell);
         CellCon.push_back(InitCon);
@@ -35,16 +36,20 @@ public:
         //connection too weak.
 };
 class cell{
+public:
     std::vector<segment> SegList;//list of segments (net of horizontal
             // connections) of this cell
+
+    std::vector<std::vector<segment*>> ActiveSegments;//list of active segments of
+    //    ^ maybe not use std::vector                 // last timesteps
     bool active;//representing input
     bool expect;//predicts input due to past experience and dendrite information
+    std::vector<bool> learn;//specifies which cells learn during each time step
 };
 
 class column{//contains connections to input and list of cells
     //that contain lateral connections to predict activation of the column
 private:
-    std::vector<cell> CellList;//List of cells in the colummn
     constexpr static double Average_Exp= 99/100.0; //Take average of overlap
               //over last 20 values
     double Overlap_Average=100;//should be active every 5th?! time
@@ -54,6 +59,8 @@ private:
     std::vector<size_t> ConnectedSynapses;//list of indices of "connected" synapses
 
 public:
+    std::vector<cell> CellList;//List of cells in the colummn
+
     std::vector<double> connectedness;//connectedness
 
     double feed_input(const std::vector<bool> &input);//computes activation caused by input
@@ -73,15 +80,14 @@ private:
     const size_t Num_Columns;
     std::vector<size_t> ActColumns;//active columns; maybe turn into array of active
                                 //columns of the last few time steps
+    std::vector<column> ColumnList;//columns in the layer
+
     std::vector<double> ActivityLog;//activity log
     //initialize to (Num_Columns,100)!
     //running average of activity of cells
     const double AverageExp=0.99;//parameter in running average;
     // find meaningful  value  ^  !
-    std::vector<column> ColumnList;//columns in the layer
     float ConThr;//threshhold for synapses in order to be "connected"
-
-    //maybe reconsider connectedness mechanism
     const double CondsInc=0.01;//connectedness increment
     const double CondsDec=0.01;//connectedness decrement
     constexpr static double AverageOverlapMin = 0.01;
