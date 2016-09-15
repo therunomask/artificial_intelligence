@@ -11,17 +11,45 @@ class LowSyn;
 class cell;
 class segment;
 
+/*
+
+
+write custom constructors for every class!
+
+propagate confusion to higher layers
+
+
+
+
+
+ */
+
+
+
+/*NOTES FROM THE PAST
+ *
+ * pdf. line 39
+ *
+ * how to handle number of synapses in each segment?
+ * how to handle number of segments for each cell?
+ *
+ */
 
 
 class segment{
+    //write constructor!!!!
 private:
     std::deque<double> CellCon;//connectedness values of the synapses in the segment
     //length of those vectors must be the same!!
-    const static double InitCon;//initial connectedness for new
+
+    //find meaningful value
+    constexpr static double InitCon=0.5;//initial connectedness for new
             //cells in the segment
+
     bool active;//segment is active if enough connected cells are active
 public:
-    std::deque< cell*> CellAddr;//pointer to adresses of cells in the segment
+    cell* const mother_cell;
+    std::vector< cell*> CellAddr;//pointer to adresses of cells in the segment
     bool EndOfSeq;//true if predictions due to this segment
             //should activate the column in question in the next
             //timestep rather than predicting prediction of activation
@@ -36,13 +64,14 @@ public:
         //connection too weak.
 };
 class cell{
+    //write constructor!!!!
 public:
     std::vector<segment> SegList;//list of segments (net of horizontal
             // connections) of this cell
 
     std::vector<std::vector<segment*>> ActiveSegments;//list of active segments of
     //    ^ maybe not use std::vector                 // last timesteps
-    bool active;//representing input
+    std::vector<bool> active;//saves activity of last few timesteps
     bool expect;//predicts input due to past experience and dendrite information
     std::vector<bool> learn;//specifies which cells learn during each time step
 };
@@ -70,11 +99,13 @@ public:
     double tell_overlap_average(void){//return running average overlap
         return Overlap_Average;
     }
+    segment* BestMatchingCell(void);
 
 };
 
 
 class layer{//write a derived class lowest_layer
+    //write constructor!!!!
 private:
      layer* const p_lower_level;//pointer to lower layer to receive input
     const size_t Num_Columns;

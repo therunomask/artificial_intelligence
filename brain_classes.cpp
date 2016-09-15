@@ -2,6 +2,7 @@
 #include <vector>
 #include <deque>
 #include <queue>
+#include <algorithm>
 
 
 void segment::UpdateCon(std::vector<const cell*> winners ){//increase connectedness
@@ -118,11 +119,11 @@ std::vector<bool> layer::current_prediction( void ){
     for(auto& active_pillar: ActColumns){
         bool predicted=false;//dummy variable checks of predicting cell is found
         bool is_chosen=false;//also dummy
-        for(auto& cell: ColumnList[active_pillar].CellList){
-            if(cell.expect==true){
+        for(auto& activePillarCell: ColumnList[active_pillar].CellList){
+            if(activePillarCell.expect==true){
                 segment* s=NULL;
                 //find segment of cell that signified the end of a sequence
-                for(auto& active_segment: cell.ActiveSegments[1]){
+                for(auto& active_segment: activePillarCell.ActiveSegments[1]){
                     if(active_segment->EndOfSeq==true){
                         s=active_segment;
                         break;
@@ -132,24 +133,57 @@ std::vector<bool> layer::current_prediction( void ){
                     continue;
                 }
                 predicted=true;
-                cell.active=true;
+                activePillarCell.active[0]=true;
                 //choose current cell to be the learning cell if it
                 //is connected to a cell with learn state on
                 for(auto& connected_cells:s->CellAddr){
                     if(connected_cells->learn[1]==true){
-                        cell.learn[0]=true;
+                        activePillarCell.learn[0]=true;
                         is_chosen=true;
                         break;
                     }
                 }
             }
         }
+        if(predicted==false){
+            for(auto& PillarCell:ColumnList[active_pillar].CellList){
+                PillarCell.active[0]=true;
+            }
+        }
+        if(is_chosen==false){
+            //get best matching cell in last timestep
+            segment* BestSegment= ColumnList[active_pillar].BestMatchingCell();
+            BestSegment->mother_cell->active[0]=true;
+        }
+
     }
 
     std::vector<bool> activation_prediction;
     //set for all cells in all columns active, expect, learn=false
+    //also delete last element of cell.active and cell.learn and add
+    //new element= false
     //for next timestep!
     return activation_prediction;
 }
 
+segment* column::BestMatchingCell(void){
+    //find the best matching segment of all the cells in the column
+    //return that segment
+    size_t max_count=0;
+    segment* bestSegment= &CellList[0].SegList[0];
+    for(auto& dummy_cell: CellList){
+        size_t count=0;
+        for(auto& dummy_segment:dummy_cell.SegList){
+            for(auto& remote_cell: dummy_segment.CellAddr){
+                if(remote_cell->active[1]==true){++count;}
+            }
+            if(count> max_count){
+                max_count=count;
+                bestSegment=&dummy_segment;
+            }
+        }
+    }
+
+    return bestSegment;
+}
 
