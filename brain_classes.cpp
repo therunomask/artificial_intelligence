@@ -57,24 +57,24 @@ std::vector<bool> layer::activation_learning(void){
         //end learning
     }
     //change activity log
-    std::transform(ActivityLog.begin(), ActivityLog.end(), ActivityLog.begin(),
+    std::transform(ColumnActivityLog.begin(), ColumnActivityLog.end(), ColumnActivityLog.begin(),
                    std::bind1st(std::multiplies<double>(),AverageExp));
     //multiply running average by AverageExp
 
-    std::transform(ActivityLog.begin(), ActivityLog.end(), activity.begin(),
-                        ActivityLog.begin(), std::plus<double>());
+    std::transform(ColumnActivityLog.begin(), ColumnActivityLog.end(), activity.begin(),
+                        ColumnActivityLog.begin(), std::plus<double>());
     //add new activity to running average.
-    //last to lines correspond to "ActivityLog= AverageExp*ActivityLog+activity"
+    //last to lines correspond to "ColumnActivityLog= AverageExp*ColumnActivityLog+activity"
 
     //more learning; activity based
     std::vector<double>::iterator pActivity_max;
-    pActivity_max= std::max_element(ActivityLog.begin(), ActivityLog.end());
+    pActivity_max= std::max_element(ColumnActivityLog.begin(), ColumnActivityLog.end());
     int Max_overlap=0;
 
     double MaxActivity = (*pActivity_max);
     for(size_t i=0;i<Num_Columns;++i){
         //arbitrary boost function!!
-        ColumnList[i].boosting=3.0-2.0*(ActivityLog[i]/MaxActivity);
+        ColumnList[i].boosting=3.0-2.0*(ColumnActivityLog[i]/MaxActivity);
         //optimize w.r.t. this function!!
 
         if(ColumnList[i].tell_overlap_average()>Max_overlap){
@@ -136,8 +136,8 @@ std::vector<bool> layer::current_prediction( void ){
                 activePillarCell.active[0]=true;
                 //choose current cell to be the learning cell if it
                 //is connected to a cell with learn state on
-                for(auto& connected_cells:s->CellAddr){
-                    if(connected_cells->learn[1]==true){
+                for(auto& connected_cells : s->Synapse){
+                    if(connected_cells.first->learn[1]==true){
                         activePillarCell.learn[0]=true;
                         is_chosen=true;
                         break;
@@ -153,7 +153,8 @@ std::vector<bool> layer::current_prediction( void ){
         if(is_chosen==false){
             //get best matching cell in last timestep
             segment* BestSegment= ColumnList[active_pillar].BestMatchingCell();
-            BestSegment->mother_cell->active[0]=true;
+            BestSegment->Mother_Cell->active[0]=true;
+            BestSegment->BlindSynapseAdding();
         }
 
     }
@@ -174,8 +175,8 @@ segment* column::BestMatchingCell(void){
     for(auto& dummy_cell: CellList){
         size_t count=0;
         for(auto& dummy_segment:dummy_cell.SegList){
-            for(auto& remote_cell: dummy_segment.CellAddr){
-                if(remote_cell->active[1]==true){++count;}
+            for(auto& remote_cell: dummy_segment.Synapse){
+                if(remote_cell.first->active[1]==true){++count;}
             }
             if(count> max_count){
                 max_count=count;
@@ -187,3 +188,22 @@ segment* column::BestMatchingCell(void){
     return bestSegment;
 }
 
+void segment::BlindSynapseAdding(void){
+    //add all active synapses to a segment that
+    //did not connect to a cell in learnstate
+
+    for(auto& remote_cell:Mother_Cell->MotherColumn->MotherLayer->Three_CellActivityList){
+        bool present=false;
+        for(auto& dummysynapse: Synapse){
+            if(remote_cell==dummysynapse.first){
+                present=true;
+                break;
+            }
+
+        }
+        if(present==false){
+            AddCell( remote_cell);
+        }
+    }
+
+}

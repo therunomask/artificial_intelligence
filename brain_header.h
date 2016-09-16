@@ -18,20 +18,33 @@ write custom constructors for every class!
 
 propagate confusion to higher layers
 
+update CellActivityList
+update Three_CellActivityList
 
 
-
-
+update all layers in parallel-> class brain
  */
 
 
 
-/*NOTES FROM THE PAST
+/*numbers to opmize
  *
  * pdf. line 39
  *
  * how to handle number of synapses in each segment?
+ * 3* active columns per layer
+ *
  * how to handle number of segments for each cell?
+ * at most cells_per_column*3*#columns/#active_columns
+ *
+ * cells per columns?
+ * ?3?
+ *
+ * columns per layer?
+ * 50 * ?4?
+ *
+ * layers?
+ * ?5?
  *
  */
 
@@ -39,8 +52,7 @@ propagate confusion to higher layers
 class segment{
     //write constructor!!!!
 private:
-    std::deque<double> CellCon;//connectedness values of the synapses in the segment
-    //length of those vectors must be the same!!
+
 
     //find meaningful value
     constexpr static double InitCon=0.5;//initial connectedness for new
@@ -48,24 +60,32 @@ private:
 
     bool active;//segment is active if enough connected cells are active
 public:
-    cell* const mother_cell;
-    std::vector< cell*> CellAddr;//pointer to adresses of cells in the segment
+    cell* const Mother_Cell;
+    std::vector<double> CellCon;//connectedness values of the synapses in the segment
+    //length of those vectors must be the same!!
+    std::vector< std::pair <cell*,double>> Synapse;//pointer to adresses of cells in the segment
     bool EndOfSeq;//true if predictions due to this segment
             //should activate the column in question in the next
             //timestep rather than predicting prediction of activation
     void AddCell( cell*  const newcell){//adds new cell to segment with
             //standard connectedness close to disconnection
-        CellAddr.push_back(newcell);
-        CellCon.push_back(InitCon);
+        double con=InitCon;
+        Synapse.push_back(std::pair <cell*,double>(newcell,con));
+        //CellCon.push_back(InitCon);
     }
+
+    void BlindSynapseAdding(void);
+
     void UpdateCon(std::vector<const cell*> winners );//increase connectedness
         //of winners, decrease connectedness
         //of all other cells in the segment, disconnect them if
         //connection too weak.
 };
+
 class cell{
     //write constructor!!!!
 public:
+    column* const MotherColumn;
     std::vector<segment> SegList;//list of segments (net of horizontal
             // connections) of this cell
 
@@ -88,6 +108,7 @@ private:
     std::vector<size_t> ConnectedSynapses;//list of indices of "connected" synapses
 
 public:
+    layer* const MotherLayer;
     std::vector<cell> CellList;//List of cells in the colummn
 
     std::vector<double> connectedness;//connectedness
@@ -104,16 +125,17 @@ public:
 };
 
 
-class layer{//write a derived class lowest_layer
+class layer{//write a derived class lowest_layer; output_layer
     //write constructor!!!!
 private:
      layer* const p_lower_level;//pointer to lower layer to receive input
+     layer* const p_upper_level;//pointer to layer above current one
     const size_t Num_Columns;
     std::vector<size_t> ActColumns;//active columns; maybe turn into array of active
                                 //columns of the last few time steps
     std::vector<column> ColumnList;//columns in the layer
 
-    std::vector<double> ActivityLog;//activity log
+    std::vector<double> ColumnActivityLog;//activity log
     //initialize to (Num_Columns,100)!
     //running average of activity of cells
     const double AverageExp=0.99;//parameter in running average;
@@ -138,6 +160,9 @@ private:
     void Update_Synapses(void);
 
 public:
+     std::vector<cell*> CellActivityList;//update as fast as possible
+     std::vector<cell*> Three_CellActivityList;//update parallel
+
      std::vector<bool> activation_learning( void );//triggers prediction of lower level
                             //computes current activation-
                             //distribution of culumns. triggers same function of
