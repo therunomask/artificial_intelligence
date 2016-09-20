@@ -154,10 +154,13 @@ std::vector<bool> layer::current_prediction( void ){
             //get best matching cell in last timestep
             segment* BestSegment= ColumnList[active_pillar].BestMatchingCell();
             BestSegment->Mother_Cell->active[0]=true;
-            BestSegment->BlindSynapseAdding();
+            BestSegment->BlindSynapseAdding(this);
+            BestSegment->EndOfSeq=true;
+            SegmentUpdateList.push_back(BestSegment);
         }
 
     }
+
 
     std::vector<bool> activation_prediction;
     //set for all cells in all columns active, expect, learn=false
@@ -188,11 +191,12 @@ segment* column::BestMatchingCell(void){
     return bestSegment;
 }
 
-void segment::BlindSynapseAdding(void){
+
+void segment::BlindSynapseAdding(layer* level){
     //add all active synapses to a segment that
     //did not connect to a cell in learnstate
 
-    for(auto& remote_cell:Mother_Cell->MotherColumn->MotherLayer->Three_CellActivityList){
+    for(auto& remote_cell:level->Three_CellActivityList){
         bool present=false;
         for(auto& dummysynapse: Synapse){
             if(remote_cell==dummysynapse.first){
@@ -207,3 +211,31 @@ void segment::BlindSynapseAdding(void){
     }
 
 }
+
+void cell::UpdateActiveSegments(void){
+    //erase first element and insert list of new active segments at the end
+    //determine which segments are active by weighted sum of active cells
+    //to wich the segments point
+
+    //when updating brain:!!!!!!!!!!!!!!!!!
+    //first update all segments of all cells of all columns of all layers,
+    //then update update all cells of all columns of all layers
+    //then all columns of all layers
+    ActiveSegments.erase(ActiveSegments.begin());
+    std::vector<segment*> tempSegments;
+    for(auto& dummysegment:SegList){
+        double sum=0;
+        for(auto& dummysynapse:dummysegment.Synapse){
+            if(dummysynapse.first->active[0]==true){
+                sum+=dummysynapse.second;
+            }
+        }
+        if(sum>=dummysegment.MinSynapseWeightActivity){
+            tempSegments.push_back(&dummysegment);
+        }
+    }
+
+
+    ActiveSegments.push_back(tempSegments);
+}
+

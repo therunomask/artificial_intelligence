@@ -23,6 +23,10 @@ update Three_CellActivityList
 
 
 update all layers in parallel-> class brain
+
+garbage collector
+
+temporäre variablen nicht in listen stecken!
  */
 
 
@@ -60,10 +64,10 @@ private:
 
     bool active;//segment is active if enough connected cells are active
 public:
-    cell* const Mother_Cell;
-    std::vector<double> CellCon;//connectedness values of the synapses in the segment
-    //length of those vectors must be the same!!
+    cell* const Mother_Cell;                            //3*activeCollumns per layer
+    constexpr static double MinSynapseWeightActivity=0.3*3*0.02*200;
     std::vector< std::pair <cell*,double>> Synapse;//pointer to adresses of cells in the segment
+    //and connectedness values of the synapses in the segment
     bool EndOfSeq;//true if predictions due to this segment
             //should activate the column in question in the next
             //timestep rather than predicting prediction of activation
@@ -74,7 +78,7 @@ public:
         //CellCon.push_back(InitCon);
     }
 
-    void BlindSynapseAdding(void);
+    void BlindSynapseAdding(layer* level);
 
     void UpdateCon(std::vector<const cell*> winners );//increase connectedness
         //of winners, decrease connectedness
@@ -91,6 +95,7 @@ public:
 
     std::vector<std::vector<segment*>> ActiveSegments;//list of active segments of
     //    ^ maybe not use std::vector                 // last timesteps
+    void UpdateActiveSegments(void);
     std::vector<bool> active;//saves activity of last few timesteps
     bool expect;//predicts input due to past experience and dendrite information
     std::vector<bool> learn;//specifies which cells learn during each time step
@@ -133,7 +138,6 @@ private:
     const size_t Num_Columns;
     std::vector<size_t> ActColumns;//active columns; maybe turn into array of active
                                 //columns of the last few time steps
-    std::vector<column> ColumnList;//columns in the layer
 
     std::vector<double> ColumnActivityLog;//activity log
     //initialize to (Num_Columns,100)!
@@ -160,13 +164,18 @@ private:
     void Update_Synapses(void);
 
 public:
-     std::vector<cell*> CellActivityList;//update as fast as possible
-     std::vector<cell*> Three_CellActivityList;//update parallel
 
-     std::vector<bool> activation_learning( void );//triggers prediction of lower level
-                            //computes current activation-
-                            //distribution of culumns. triggers same function of
-                            //lower layer to use as input
+    std::vector<column> ColumnList;//columns in the layer
+
+    std::vector<segment*> SegmentUpdateList;
+    std::vector<cell*> CellActivityList;//update as fast as possible
+    std::vector<cell*> Three_CellActivityList;//update parallel
+
+
+    std::vector<bool> activation_learning( void );//triggers prediction of lower level
+                        //computes current activation-
+                        //distribution of culumns. triggers same function of
+                        //lower layer to use as input
                         //somehow propagate expected activation of lower level to it!!
     virtual std::vector<bool> current_prediction( void );//triggers activation of same level
         //is "virtual" because lowest_layer needs to redefine this function
