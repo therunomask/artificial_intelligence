@@ -18,10 +18,13 @@ std::vector<bool> layer::activation_learning(void){
         //
         //missing: propagate expectation to lower level!!
         //
+
     std::vector<double> overlap;//reserve space for length of ColumnList
     for(auto &pillar : ColumnList){
         //compute feed input of columns in the layer
         overlap.push_back(pillar.feed_input(input));
+        //reset activity to false
+        pillar.active=false;
     }
     //finding #DesiredLocalActivity highest overlapping columns
 
@@ -120,7 +123,7 @@ std::vector<bool> layer::current_prediction( void ){
         bool predicted=false;//dummy variable checks of predicting cell is found
         bool is_chosen=false;//also dummy
         for(auto& activePillarCell: ColumnList[active_pillar].CellList){
-            if(activePillarCell.expect==true){
+            if(activePillarCell.expect[1]==true){
                 segment* s=NULL;
                 //find segment of cell that signified the end of a sequence
                 for(auto& active_segment: activePillarCell.ActiveSegments[1]){
@@ -152,15 +155,63 @@ std::vector<bool> layer::current_prediction( void ){
         }
         if(is_chosen==false){
             //get best matching cell in last timestep
-            segment* BestSegment= ColumnList[active_pillar].BestMatchingCell();
-            BestSegment->Mother_Cell->active[0]=true;
-            BestSegment->BlindSynapseAdding(this);
+            segment* BestSegment= ColumnList[active_pillar].BestMatchingSegmentInColumn();
+            BestSegment->MotherCell->active[0]=true;
+            BestSegment->BlindSynapseAdding(this,1);//1= most recent
             BestSegment->EndOfSeq=true;
-            SegmentUpdateList.push_back(BestSegment);
+            SegmentUpdateList[1].push_back(BestSegment);
         }
 
     }
 
+    for(auto& pillars:ColumnList){
+        for(auto& dummycell:pillars.CellList){
+            dummycell.expect.erase(dummycell.expect.begin());
+            dummycell.expect.push_back(false);
+            //check whether cell currently has an active segment
+            if(dummycell.ActiveSegments[1].size()!=0){
+                //cell predicts now, because of active segment
+                dummycell.expect[1]=true;
+                //first element of ActiveSegments[1] is most active segment
+                //this segment is supposed to learn
+                SegmentUpdateList[1].push_back(dummycell.ActiveSegments[1][0]);
+
+                if(dummycell.expect[0]==true){
+                //if the cell predicted prediction, the most active segment
+                    //of the previous timestep learns
+                    SegmentUpdateList[1].push_back(dummycell.ActiveSegments[0][0]);
+                }
+                else{
+                    //find the Segment that matches the activity of the previous
+                    //timestep best. Do blind synapse adding for this segment,
+                    //we choose this kind of learning, because the current
+                    //prediction was not predicted.
+                    segment* poBestSegment=dummycell.BestSegment(0);
+                    poBestSegment->BlindSynapseAdding(this,0);
+                    SegmentUpdateList[1].push_back(poBestSegment);
+                }
+
+            }
+
+        }
+    }
+
+    //learning, i.e. implementing changes queued up in SegmentUpdateList
+    for(auto& dummySegment: SegmentUpdateList[0]){
+        //if the cell is active, the synapse should be reinforced.
+        //If the cell is inactive, the synapse should only be reinforced if
+        //the segment is not at the end of a sequence, otherwise the segment
+        //should be weakened
+        if(dummySegment->MotherCell->active[0]==true){
+            dummySegment->AdaptingSynapses(dummySegment->PositiveLearning);
+        }
+        else if(dummySegment->EndOfSeq==false&&dummySegment->MotherCell->expect[0]){
+            dummySegment->AdaptingSynapses(dummySegment->PositiveLearning);
+        }
+        else{
+            dummySegment->AdaptingSynapses(!(dummySegment->PositiveLearning));
+        }
+    }
 
     std::vector<bool> activation_prediction;
     //set for all cells in all columns active, expect, learn=false
@@ -170,7 +221,7 @@ std::vector<bool> layer::current_prediction( void ){
     return activation_prediction;
 }
 
-segment* column::BestMatchingCell(void){
+segment* column::BestMatchingSegmentInColumn(void){
     //find the best matching segment of all the cells in the column
     //return that segment
     size_t max_count=0;
@@ -192,11 +243,11 @@ segment* column::BestMatchingCell(void){
 }
 
 
-void segment::BlindSynapseAdding(layer* level){
+void segment::BlindSynapseAdding(layer* level,size_t t){
     //add all active synapses to a segment that
     //did not connect to a cell in learnstate
 
-    for(auto& remote_cell:level->Three_CellActivityList){
+    for(auto& remote_cell:level->Three_CellActivityList[t]){
         bool present=false;
         for(auto& dummysynapse: Synapse){
             if(remote_cell==dummysynapse.first){
@@ -223,6 +274,8 @@ void cell::UpdateActiveSegments(void){
     //then all columns of all layers
     ActiveSegments.erase(ActiveSegments.begin());
     std::vector<segment*> tempSegments;
+    size_t max=0;
+    double max_sum=0;
     for(auto& dummysegment:SegList){
         double sum=0;
         for(auto& dummysynapse:dummysegment.Synapse){
@@ -232,10 +285,85 @@ void cell::UpdateActiveSegments(void){
         }
         if(sum>=dummysegment.MinSynapseWeightActivity){
             tempSegments.push_back(&dummysegment);
+            //remember largest element to put in front of the vector
+            if(max_sum<sum){
+                max=tempSegments.size();
+                max_sum=sum;
+            }
+
         }
     }
 
+    std::iter_swap(tempSegments.begin(),tempSegments.begin()+max-1);
 
     ActiveSegments.push_back(tempSegments);
+}
+
+segment* cell::BestSegment(size_t t){
+    //finds the Segment which matches best at time t
+    //and returns a pointer to it
+    double max=0;
+    segment* pBestSegment;
+    for(auto& dummysegment: SegList){
+        double sum=0;
+        for(auto& dummysynapse: dummysegment.Synapse){
+            if(dummysynapse.first->active[t]==true){
+                //add activity of synapse only if remote cell is active
+                sum+=dummysynapse.second;
+            }
+        }
+        if(sum>=max){
+            max=sum;
+            pBestSegment=&dummysegment;
+        }
+    }
+    return pBestSegment;
+}
+void segment::AdaptingSynapses(bool positive){
+
+    //for positive learning reinforce all connections to active cells
+    //punish all connections to inactive cells
+    if(positive==true){
+        //no for loop, because we delete synapses that drop below 0 connectedness
+        auto dummySynapse=Synapse.begin();
+        while( dummySynapse!=Synapse.end()){
+            if(dummySynapse->first->active[0]==true){
+                //if remote cell is active-> positive learning is apropriate
+                dummySynapse->second=std::min(1.0,dummySynapse->second+Learnincrement);
+                ++dummySynapse;
+            }
+            else{
+                //if remote cell is inactive, the synapse was useless, negative learning is apropriate
+                dummySynapse->second=dummySynapse->second-Learnincrement;
+                if(dummySynapse->second<=0){
+                    Synapse.erase(dummySynapse);
+                }
+                else{
+                    ++dummySynapse;
+                }
+            }
+        }
+    }
+    //for negative learning punish all connections to active cells,
+    //since they predicted mistakenly
+    else{
+        auto dummySynapse=Synapse.begin();
+        while( dummySynapse!=Synapse.end()){
+            if(dummySynapse->first->active[0]==true){
+                //if remote cell is active-> decrement connectedness
+                dummySynapse->second=dummySynapse->second-Learnincrement;
+                if(dummySynapse->second<=0){
+                    Synapse.erase(dummySynapse);
+                }
+                else{
+                    ++dummySynapse;
+                }
+            }
+            else{
+                ++dummySynapse;
+            }
+
+        }
+    }
 }
 

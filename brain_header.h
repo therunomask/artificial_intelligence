@@ -27,13 +27,15 @@ update all layers in parallel-> class brain
 garbage collector
 
 temporäre variablen nicht in listen stecken!
+
+t=0 <=> jetzt; checken
  */
 
 
 
 /*numbers to opmize
  *
- * pdf. line 39
+ * pdf. line
  *
  * how to handle number of synapses in each segment?
  * 3* active columns per layer
@@ -50,6 +52,9 @@ temporäre variablen nicht in listen stecken!
  * layers?
  * ?5?
  *
+ * InitCon= ?0.5?
+ * Learnincrement= ?0.07?
+ *
  */
 
 
@@ -64,7 +69,7 @@ private:
 
     bool active;//segment is active if enough connected cells are active
 public:
-    cell* const Mother_Cell;                            //3*activeCollumns per layer
+    cell* const MotherCell;                            //3*activeCollumns per layer
     constexpr static double MinSynapseWeightActivity=0.3*3*0.02*200;
     std::vector< std::pair <cell*,double>> Synapse;//pointer to adresses of cells in the segment
     //and connectedness values of the synapses in the segment
@@ -78,7 +83,16 @@ public:
         //CellCon.push_back(InitCon);
     }
 
-    void BlindSynapseAdding(layer* level);
+    static constexpr bool PositiveLearning= true;
+    static constexpr double Learnincrement= 0.07;//possibly change to harder
+              // punishment for larger segments     //also magic number
+
+    void AdaptingSynapses(bool positive);
+
+
+    void BlindSynapseAdding(layer* level,size_t t);
+
+
 
     void UpdateCon(std::vector<const cell*> winners );//increase connectedness
         //of winners, decrease connectedness
@@ -93,11 +107,13 @@ public:
     std::vector<segment> SegList;//list of segments (net of horizontal
             // connections) of this cell
 
+
     std::vector<std::vector<segment*>> ActiveSegments;//list of active segments of
     //    ^ maybe not use std::vector                 // last timesteps
     void UpdateActiveSegments(void);
+    segment* BestSegment(size_t t);
     std::vector<bool> active;//saves activity of last few timesteps
-    bool expect;//predicts input due to past experience and dendrite information
+    std::vector<bool> expect;//predicts input due to past experience and dendrite information
     std::vector<bool> learn;//specifies which cells learn during each time step
 };
 
@@ -116,6 +132,8 @@ public:
     layer* const MotherLayer;
     std::vector<cell> CellList;//List of cells in the colummn
 
+    bool active;//activity of feed forward input
+
     std::vector<double> connectedness;//connectedness
 
     double feed_input(const std::vector<bool> &input);//computes activation caused by input
@@ -125,7 +143,7 @@ public:
     double tell_overlap_average(void){//return running average overlap
         return Overlap_Average;
     }
-    segment* BestMatchingCell(void);
+    segment* BestMatchingSegmentInColumn(void);
 
 };
 
@@ -167,9 +185,11 @@ public:
 
     std::vector<column> ColumnList;//columns in the layer
 
-    std::vector<segment*> SegmentUpdateList;
+    std::vector<std::vector<segment*>> SegmentUpdateList;
     std::vector<cell*> CellActivityList;//update as fast as possible
-    std::vector<cell*> Three_CellActivityList;//update parallel
+
+    std::vector<std::vector<cell*>> Three_CellActivityList;//update parallel
+                                                            //outer vector for timesteps
 
 
     std::vector<bool> activation_learning( void );//triggers prediction of lower level
