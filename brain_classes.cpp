@@ -3,6 +3,133 @@
 #include <deque>
 #include <queue>
 #include <algorithm>
+#include <time.h>
+
+
+std::vector<layer> BrainConstructionHelper(brain Init_brain,size_t Number_of_Levels, layer& LowestLayer, layer& Top, size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column){
+
+    //maybe not yet finished, check this!
+
+    std::vector<layer> ListOfLayers;
+    ListOfLayers.push_back(LowestLayer);
+
+    for(size_t i=1;i<Number_of_Levels-2;++i){
+        ListOfLayers.push_back(*(new layer(Number_of_Column_per_Layer, Number_of_Cells_per_Column)));
+
+    }
+    ListOfLayers.push_back(Top);
+
+    for(size_t i=1;i<ListOfLayers.size()-1;++i){
+// initialize lowest and highest level extra
+        ListOfLayers[i].p_lower_level=&(ListOfLayers[i-1]);
+        ListOfLayers[i].p_upper_level=&(ListOfLayers[i+1]);
+
+    }
+
+    //now that layers exist, we connect columns to other columns
+    //we choose at random which columns to connect to and
+    //how strong the connection is
+    srand(time(NULL));
+    for(layer& DummyLayer: ListOfLayers){
+        if(DummyLayer.p_lower_level==NULL){
+            continue;
+        }
+        for(column& DummyPillar: DummyLayer.ColumnList){
+            for(size_t SynapseIndex=0;SynapseIndex<DummyLayer.Num_Columns;SynapseIndex++){
+                //                                                                                                                                                                                          uniformly distributed between MinoverLap(0.3) and 2 Minoverlap(0.6)
+                DummyPillar.ConnectedSynapses.push_back(std::pair<column*,double>(&(DummyLayer.p_lower_level->ColumnList[rand()%DummyLayer.p_lower_level->Num_Columns]),(static_cast<double>(rand())/RAND_MAX+1)*minimal_overlap_under_consideration/(pillars_per_layer*active_pillers_per_pillar)));
+            }
+
+        }
+    }
+
+    //now that layers exist, we connect segments to cells in their own +-1 level
+    //we choose at random which cell to connect to and
+    //how strong the connection is
+    for(layer& DummyLayer: ListOfLayers){
+        if(DummyLayer.p_lower_level==NULL){
+            continue;
+        }
+        for(column& DummyPillar: DummyLayer.ColumnList){
+            for(cell& DummyCell: DummyPillar.CellList){
+                for(segment& DummySegment: DummyCell.SegList){
+                    for(size_t SynapseIndex=0;SynapseIndex<synapses_per_segment;SynapseIndex++){
+                        DummySegment.Synapse.push_back(std::pair<cell*,double>(&(DummyLayer.ColumnList[rand()%DummyLayer.Num_Columns].CellList[rand()%Number_of_Cells_per_Column]),(static_cast<double>(rand())/RAND_MAX+1)*Minimal_sum_of_synapseweights_for_activity/(cells_per_column*active_pillers_per_pillar*pillars_per_layer)));
+                        DummySegment.Synapse.push_back(std::pair<cell*,double>(&(DummyLayer.p_lower_level->ColumnList[rand()%DummyLayer.Num_Columns].CellList[rand()%Number_of_Cells_per_Column]),(static_cast<double>(rand())/RAND_MAX+1)*Minimal_sum_of_synapseweights_for_activity/(cells_per_column*active_pillers_per_pillar*pillars_per_layer)));
+                        DummySegment.Synapse.push_back(std::pair<cell*,double>(&(DummyLayer.p_upper_level->ColumnList[rand()%DummyLayer.Num_Columns].CellList[rand()%Number_of_Cells_per_Column]),(static_cast<double>(rand())/RAND_MAX+1)*Minimal_sum_of_synapseweights_for_activity/(cells_per_column*active_pillers_per_pillar*pillars_per_layer)));
+                    }
+
+                }
+            }
+
+        }
+    }
+
+    return ListOfLayers;
+}
+
+brain::brain(size_t Number_of_Levels, layer& LowestLayer, layer& Top, size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column)
+    :NumLevels(Number_of_Levels),
+      ListLevels(BrainConstructionHelper(*this, NumLevels ,LowestLayer, Top,Number_of_Column_per_Layer,Number_of_Cells_per_Column))
+
+{
+
+
+}
+
+
+
+layer::layer(size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column)
+    :
+
+      DesiredLocalActivity((static_cast<int>(Number_of_Column_per_Layer*FractionOfActiveColumns))),
+      ActColumns(std::vector<column*>(DesiredLocalActivity,NULL)),
+      TempActColumns(std::vector<column*>(DesiredLocalActivity,NULL)),
+      Num_Columns(Number_of_Column_per_Layer),
+      p_lower_level(NULL),//still to be initialized for bottommost and highes layer
+      p_upper_level(NULL),//still to be initialized for bottommost and highes layer
+      ColumnList(std::vector<column>(Number_of_Column_per_Layer,column(this,Number_of_Cells_per_Column))),
+      SegmentUpdateList(std::vector<std::vector<segment*>>(2,std::vector<segment*>())),
+      CellActivityList(std::vector<cell*>()),
+      Three_CellActivityList(std::vector<std::vector<cell*>>(2,std::vector<cell*>()))
+{
+
+}
+column::column(layer* layer_to_belong_to, size_t Number_of_Cells_per_Column)
+    :
+    Overlap_Average(Initial_Overlap_Average),
+    ConnectedSynapses(std::vector<std::pair<column*,double>>()),//still to be initialized for lowest and highest layer
+    MotherLayer(layer_to_belong_to),
+    CellList(std::vector<cell>(Number_of_Cells_per_Column,cell(this))),
+    active(false),
+    ActivityLog(Initial_Activity_log),
+    boosting(1.0)
+{
+
+}
+
+
+cell::cell(column* Column_to_belong_to)
+    :
+      MotherColumn(Column_to_belong_to),
+      SegList(std::vector<segment>(synapses_per_segment, segment(this))),
+      ActiveSegments( std::vector<std::vector<segment*>>(2,*(new std::vector<segment*>))),
+      active(2,false),
+      expect(2,false),
+      learn(2,false)
+{
+
+}
+
+segment::segment(cell* Cell_to_belong_to)
+    :
+      active(false),
+      MotherCell(Cell_to_belong_to),
+      Synapse(std::vector< std::pair <cell*,double>>() ),//still to be initialized afterward
+      EndOfSeq(false)
+{
+
+}
 
 
 void segment::UpdateCon(std::vector<const cell*> winners ){//increase connectedness
@@ -11,100 +138,98 @@ void segment::UpdateCon(std::vector<const cell*> winners ){//increase connectedn
     //connection too weak.
 }
 
-
-std::vector<bool> layer::activation_learning(void){
-    std::vector<bool>input( p_lower_level->current_prediction());
-        //trigger prediction evaluation of lower levels while optaining input
-        //
-        //missing: propagate expectation to lower level!!
-        //
-
-    std::vector<double> overlap;//reserve space for length of ColumnList
-    for(auto &pillar : ColumnList){
-        //compute feed input of columns in the layer
-        overlap.push_back(pillar.feed_input(input));
-        //reset activity to false
-        pillar.active=false;
-    }
+void layer::FindBestColumns(void){
     //finding #DesiredLocalActivity highest overlapping columns
 
-    std::priority_queue<std::pair<double, size_t>,std::vector<std::pair<double,size_t>>,std::greater<std::pair<double,size_t>>> winner;
+    std::priority_queue<std::pair<double, column*>,std::vector<std::pair<double,column*>>,std::greater<std::pair<double,column*>>> winner;
     //priority queue orderes its elements automatically
     //long definition to make priority queue order its elements in increasing order
     for (size_t i = 0; i < DesiredLocalActivity; ++i) {
-        winner.push(std::pair<double, size_t>(overlap[i], i));
+        winner.push(std::pair<double, column*>(ColumnList[i].feed_input(),&ColumnList[i] ));
     }//first add minimum number of elements
     for (size_t i = DesiredLocalActivity; i < Num_Columns; ++i) {
-        if(overlap[i]>winner.top().first){
+        double overlap=ColumnList[i].feed_input();
+        if(overlap >winner.top().first){
               winner.pop();
-              winner.push(std::pair<double, size_t>(overlap[i], i));
+              winner.push(std::pair<double, column*>(overlap, &ColumnList[i]));
         }
     }//winner now contains #DesiredLocalActivity highest overlapping columns
-    //now create activity vector
-    std::vector<bool> activity(Num_Columns,false);
+
+
     for (size_t i = 0; i < DesiredLocalActivity; ++i) {
-        size_t index = winner.top().second;
-        ActColumns[i]=index;
-        activity[index]=true;
-        winner.pop();
-        //learning
-        for(size_t l=0;l<input.size();++l){
-            if(input[l]){
-                ColumnList[index].connectedness[l]+=CondsInc;
-                ColumnList[index].connectedness[l]=(ColumnList[index].connectedness[l]>1) ? 1 : ColumnList[index].connectedness[l];
+        TempActColumns[i]=winner.top().second;
+    }
+
+}
+
+void layer::ConnectedSynapsesUpdate(void){
+    //strengthen connections to columns that were active
+    //weaken connections to columns that were inactive
+    for(auto& pdummyColumn: TempActColumns){
+
+        for(auto& dummy_connected_synapse : pdummyColumn->ConnectedSynapses){
+            if(dummy_connected_synapse.first->active==true){
+                dummy_connected_synapse.second=std::max(dummy_connected_synapse.second+CondsInc,1.0);
             }else{
-                ColumnList[index].connectedness[l]-=CondsInc;
-                ColumnList[index].connectedness[l]=(ColumnList[index].connectedness[l]<0) ? 0 : ColumnList[index].connectedness[l];
+                dummy_connected_synapse.second=std::min(dummy_connected_synapse.second-CondsDec,0.0);
+
             }
         }
-        //end learning
     }
-    //change activity log
-    std::transform(ColumnActivityLog.begin(), ColumnActivityLog.end(), ColumnActivityLog.begin(),
-                   std::bind1st(std::multiplies<double>(),AverageExp));
-    //multiply running average by AverageExp
 
-    std::transform(ColumnActivityLog.begin(), ColumnActivityLog.end(), activity.begin(),
-                        ColumnActivityLog.begin(), std::plus<double>());
-    //add new activity to running average.
-    //last to lines correspond to "ColumnActivityLog= AverageExp*ColumnActivityLog+activity"
+}
+double layer::ActivityLogUpdateFindMaxActivity(void){
+    double MaxActivity = 0;
 
-    //more learning; activity based
-    std::vector<double>::iterator pActivity_max;
-    pActivity_max= std::max_element(ColumnActivityLog.begin(), ColumnActivityLog.end());
-    int Max_overlap=0;
+    for(auto& dummy_pillar:ColumnList){
+        //change activity log
+        dummy_pillar.ActivityLog =dummy_pillar.ActivityLog* dummy_pillar.Average_Exp+dummy_pillar.active;
 
-    double MaxActivity = (*pActivity_max);
-    for(size_t i=0;i<Num_Columns;++i){
-        //arbitrary boost function!!
-        ColumnList[i].boosting=3.0-2.0*(ColumnActivityLog[i]/MaxActivity);
-        //optimize w.r.t. this function!!
-
-        if(ColumnList[i].tell_overlap_average()>Max_overlap){
-            Max_overlap=ColumnList[i].tell_overlap_average();
+        //more learning; activity based
+        if(dummy_pillar.ActivityLog>MaxActivity){
+            MaxActivity=dummy_pillar.ActivityLog;
         }
     }
-    Max_overlap*=AverageOverlapMin;//otimize magic number!
+
+    return MaxActivity;
+
+}
+
+
+void layer::BoostingUpdate_StrenthenWeak(double MaxActivity){
+
+    int Max_overlap=0;
+
+    for(auto& dummy_column:ColumnList){
+        //arbitrary boost function!!
+        dummy_column.boosting=maximum_boosting-(maximum_boosting-1.0)*(dummy_column.ActivityLog/MaxActivity);
+        //optimize w.r.t. this function!!
+        if(dummy_column.tell_overlap_average()>Max_overlap){
+            Max_overlap=dummy_column.tell_overlap_average();
+        }
+    }
+    Max_overlap *=AverageOverlapMin;//otimize magic number!
 
     for(auto& pillar : ColumnList){
         //strenthen pillars that never overlap uniformly
         if(pillar.tell_overlap_average() < Max_overlap){
-            for(auto& con: pillar.connectedness){
-                con+=SpecialOverlapIncrement;
+            for(auto& con: pillar.ConnectedSynapses){
+                con.second+=SpecialOverlapIncrement;
             }
         }
 
     }//end of learning
 
-    return activity;
 }
 
-double column::feed_input(const std::vector<bool>& input){
+
+
+double column::feed_input(void){
     //computes overlap and
     //boosted overlap; also updates running averages
     int overlap=0;
     for(auto &syn : ConnectedSynapses){
-            overlap+= input[syn];
+            overlap+=static_cast<int>( syn.first->active);
     }
     if(overlap<MinOverlap){
         overlap=0;
@@ -122,7 +247,7 @@ std::vector<bool> layer::current_prediction( void ){
     for(auto& active_pillar: ActColumns){
         bool predicted=false;//dummy variable checks of predicting cell is found
         bool is_chosen=false;//also dummy
-        for(auto& activePillarCell: ColumnList[active_pillar].CellList){
+        for(auto& activePillarCell: active_pillar->CellList){
             if(activePillarCell.expect[1]==true){
                 segment* s=NULL;
                 //find segment of cell that signified the end of a sequence
@@ -149,21 +274,21 @@ std::vector<bool> layer::current_prediction( void ){
             }
         }
         if(predicted==false){
-            for(auto& PillarCell:ColumnList[active_pillar].CellList){
+            for(auto& PillarCell:active_pillar->CellList){
                 PillarCell.active[0]=true;
             }
         }
         if(is_chosen==false){
             //get best matching cell in last timestep
-            segment* BestSegment= ColumnList[active_pillar].BestMatchingSegmentInColumn();
-            BestSegment->MotherCell->active[0]=true;
+            segment* BestSegment= active_pillar->BestMatchingSegmentInColumn();
+            BestSegment->MotherCell->learn[0]=true;
             BestSegment->BlindSynapseAdding(this,1);//1= most recent
             BestSegment->EndOfSeq=true;
             SegmentUpdateList[1].push_back(BestSegment);
         }
 
     }
-
+        //check 0==now! <-> change if not
     for(auto& pillars:ColumnList){
         for(auto& dummycell:pillars.CellList){
             dummycell.expect.erase(dummycell.expect.begin());
@@ -186,9 +311,9 @@ std::vector<bool> layer::current_prediction( void ){
                     //timestep best. Do blind synapse adding for this segment,
                     //we choose this kind of learning, because the current
                     //prediction was not predicted.
-                    segment* poBestSegment=dummycell.BestSegment(0);
-                    poBestSegment->BlindSynapseAdding(this,0);
-                    SegmentUpdateList[1].push_back(poBestSegment);
+                    segment* pBestSegment=dummycell.BestSegment(0);
+                    pBestSegment->BlindSynapseAdding(this,0);
+                    SegmentUpdateList[1].push_back(pBestSegment);
                 }
 
             }
@@ -198,6 +323,9 @@ std::vector<bool> layer::current_prediction( void ){
 
     //learning, i.e. implementing changes queued up in SegmentUpdateList
     for(auto& dummySegment: SegmentUpdateList[0]){
+
+        //change to waiting for actual activation
+
         //if the cell is active, the synapse should be reinforced.
         //If the cell is inactive, the synapse should only be reinforced if
         //the segment is not at the end of a sequence, otherwise the segment
@@ -319,6 +447,7 @@ segment* cell::BestSegment(size_t t){
     }
     return pBestSegment;
 }
+
 void segment::AdaptingSynapses(bool positive){
 
     //for positive learning reinforce all connections to active cells
@@ -329,12 +458,12 @@ void segment::AdaptingSynapses(bool positive){
         while( dummySynapse!=Synapse.end()){
             if(dummySynapse->first->active[0]==true){
                 //if remote cell is active-> positive learning is apropriate
-                dummySynapse->second=std::min(1.0,dummySynapse->second+Learnincrement);
+                dummySynapse->second=std::min(1.0,dummySynapse->second+LearnIncrement);
                 ++dummySynapse;
             }
             else{
                 //if remote cell is inactive, the synapse was useless, negative learning is apropriate
-                dummySynapse->second=dummySynapse->second-Learnincrement;
+                dummySynapse->second=dummySynapse->second-LearnIncrement;
                 if(dummySynapse->second<=0){
                     Synapse.erase(dummySynapse);
                 }
@@ -351,7 +480,7 @@ void segment::AdaptingSynapses(bool positive){
         while( dummySynapse!=Synapse.end()){
             if(dummySynapse->first->active[0]==true){
                 //if remote cell is active-> decrement connectedness
-                dummySynapse->second=dummySynapse->second-Learnincrement;
+                dummySynapse->second=dummySynapse->second-LearnIncrement;
                 if(dummySynapse->second<=0){
                     Synapse.erase(dummySynapse);
                 }
@@ -365,5 +494,39 @@ void segment::AdaptingSynapses(bool positive){
 
         }
     }
+}
+
+void brain::update(){
+/*updates:
+ * layer::actcolumns
+ * layer::SegmentUpdateList
+ * layer::CellActivityList
+ * layer::Three_CellActivityList
+ * column::Overlap_Average
+ * column::ConnectedSynapses
+ * column::active
+ * column::ActivityLog
+ * column::boosting
+ * cell::ActiveSegments
+ * cell::active
+ * cell::expect
+ * cell::learn
+ * segment::active
+ * segment::Synapse
+ * segment::EndOfSeq
+ *
+ * Do all layers in parallel, i.e. do the layers one after another
+ * but don't implement updates until after the last layer.
+
+*/
+
+    for(layer Dummylayer:ListLevels){
+        Dummylayer.FindBestColumns();
+        Dummylayer.ConnectedSynapsesUpdate();
+        double MaxActivity=Dummylayer.ActivityLogUpdateFindMaxActivity();
+        Dummylayer.BoostingUpdate_StrenthenWeak( MaxActivity);
+
+    }
+
 }
 
