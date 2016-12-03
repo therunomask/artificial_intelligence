@@ -3,6 +3,7 @@
 
 #include<vector>
 #include<deque>
+#include<unordered_set>
 
 class brain;
 class layer;
@@ -17,6 +18,7 @@ class segment;
  *
   create examples of lowest and top layer
 
+  check if prediction and activation are seen together from above layers
   clean up spatial pooler,
 
   check dependency of activity of cells of the same column! Also check magic numbers in relation to that
@@ -151,6 +153,7 @@ public:
     std::vector<bool> active;//saves activity of last few timesteps
     std::vector<bool> expect;//predicts input due to past experience and dendrite information
     std::vector<bool> learn;//specifies which cells learn during each time step
+    std::vector<segment*> SegmentUpdateList;
 
     void UpdateActiveSegments(void);
     segment* BestSegment(size_t t);
@@ -231,14 +234,20 @@ public:
     std::vector<std::vector<cell*>> Three_CellActivityList;//update parallel
                                                             //outer vector for timesteps
 
+    std::unordered_set<cell*> CellUpdateList;
+    std::vector<cell*> PendingActivity;
+    std::vector<cell*> PendingExpectation;
+    std::vector<cell*> PendingLearning;
+
     void FindBestColumns(void);
     void ConnectedSynapsesUpdate(void);
     double ActivityLogUpdateFindMaxActivity(void);
     void BoostingUpdate_StrenthenWeak(double MaxActivity);
+    void SegmentUpdater(void);
 
-    virtual std::vector<bool> current_prediction( void );//triggers activation of same level
-        //is "virtual" because lowest_layer needs to redefine this function
-    
+    void CellExpectInitiator(void);
+    void CellUpdater(void);
+    void CellLearnInitiator(void);
 };
 
 

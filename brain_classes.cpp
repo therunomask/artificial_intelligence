@@ -4,6 +4,7 @@
 #include <queue>
 #include <algorithm>
 #include <time.h>
+#include<unordered_set>
 
 
 std::vector<layer> BrainConstructionHelper(brain Init_brain,size_t Number_of_Levels, layer& LowestLayer, layer& Top, size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column){
@@ -89,9 +90,13 @@ layer::layer(size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Colum
       p_lower_level(NULL),//still to be initialized for bottommost and highes layer
       p_upper_level(NULL),//still to be initialized for bottommost and highes layer
       ColumnList(std::vector<column>(Number_of_Column_per_Layer,column(this,Number_of_Cells_per_Column))),
-      SegmentUpdateList(std::vector<std::vector<segment*>>(2,std::vector<segment*>())),
+      SegmentUpdateList(std::vector<std::vector<segment*>>(2,std::vector<segment*>())),//obsolete
       CellActivityList(std::vector<cell*>()),
-      Three_CellActivityList(std::vector<std::vector<cell*>>(2,std::vector<cell*>()))
+      Three_CellActivityList(std::vector<std::vector<cell*>>(2,std::vector<cell*>())),
+      CellUpdateList(std::unordered_set<cell*>()),
+      PendingActivity(std::vector<cell*>()),
+      PendingExpectation(std::vector<cell*>()),
+      PendingLearning(std::vector<cell*>())
 {
 
 }
@@ -116,7 +121,8 @@ cell::cell(column* Column_to_belong_to)
       ActiveSegments( std::vector<std::vector<segment*>>(2,*(new std::vector<segment*>))),
       active(2,false),
       expect(2,false),
-      learn(2,false)
+      learn(2,false),
+      SegmentUpdateList(std::vector<segment*>())
 {
 
 }
@@ -238,9 +244,35 @@ double column::feed_input(void){
     return overlap*boosting;
 }
 
-std::vector<bool> layer::current_prediction( void ){
-        //triggers activation of same level
+void layer::CellExpectInitiator( void ){
 
+    for(auto& pillars:ColumnList){
+        for(auto& dummycell:pillars.CellList){
+            //check whether cell currently has an active segment
+            if(dummycell.ActiveSegments[0].size()!=0){
+                //cell predicts now, because of active segment
+                PendingExpectation.push_back(&dummycell);
+                //first element of ActiveSegments[1] is most active segment
+                //this segment is supposed to learn
+                CellUpdateList.insert(&dummycell);
+                dummycell.SegmentUpdateList.push_back(dummycell.ActiveSegments[0][0]);
+
+                if(dummycell.expect[1]==false){
+                    //if prediction is unexpected,
+                    //find the Segment that matches the activity of the previous
+                    //timestep best. Do blind synapse adding for this segment,
+                    //we choose this kind of learning, because the current
+                    //prediction was not predicted.
+                    segment* pBestSegment=dummycell.BestSegment(1);
+                    pBestSegment->BlindSynapseAdding(this,1);
+                    dummycell.SegmentUpdateList.push_back(pBestSegment);
+                }
+            }
+        }
+    }
+}
+
+void layer::CellLearnInitiator(void){
     //check if a cell predicted activation of a column
     //if so, change its synapses.
     //if not choose cell to predict same activation in the future
@@ -261,12 +293,12 @@ std::vector<bool> layer::current_prediction( void ){
                     continue;
                 }
                 predicted=true;
-                activePillarCell.active[0]=true;
+                PendingActivity.push_back(&activePillarCell);
                 //choose current cell to be the learning cell if it
                 //is connected to a cell with learn state on
                 for(auto& connected_cells : s->Synapse){
                     if(connected_cells.first->learn[1]==true){
-                        activePillarCell.learn[0]=true;
+                        PendingLearning.push_back(&activePillarCell);
                         is_chosen=true;
                         break;
                     }
@@ -275,78 +307,68 @@ std::vector<bool> layer::current_prediction( void ){
         }
         if(predicted==false){
             for(auto& PillarCell:active_pillar->CellList){
-                PillarCell.active[0]=true;
+                PendingActivity.push_back(&PillarCell);
             }
         }
         if(is_chosen==false){
             //get best matching cell in last timestep
             segment* BestSegment= active_pillar->BestMatchingSegmentInColumn();
-            BestSegment->MotherCell->learn[0]=true;
-            BestSegment->BlindSynapseAdding(this,1);//1= most recent
+            PendingLearning.push_back(BestSegment->MotherCell);
+            BestSegment->BlindSynapseAdding(this,1);//1= last timestep
             BestSegment->EndOfSeq=true;
-            SegmentUpdateList[1].push_back(BestSegment);
+            BestSegment->MotherCell->SegmentUpdateList.push_back(BestSegment);
+            CellUpdateList.insert(BestSegment->MotherCell);
         }
 
     }
-        //check 0==now! <-> change if not
-    for(auto& pillars:ColumnList){
-        for(auto& dummycell:pillars.CellList){
-            dummycell.expect.erase(dummycell.expect.begin());
-            dummycell.expect.push_back(false);
-            //check whether cell currently has an active segment
-            if(dummycell.ActiveSegments[1].size()!=0){
-                //cell predicts now, because of active segment
-                dummycell.expect[1]=true;
-                //first element of ActiveSegments[1] is most active segment
-                //this segment is supposed to learn
-                SegmentUpdateList[1].push_back(dummycell.ActiveSegments[1][0]);
+}
 
-                if(dummycell.expect[0]==true){
-                //if the cell predicted prediction, the most active segment
-                    //of the previous timestep learns
-                    SegmentUpdateList[1].push_back(dummycell.ActiveSegments[0][0]);
-                }
-                else{
-                    //find the Segment that matches the activity of the previous
-                    //timestep best. Do blind synapse adding for this segment,
-                    //we choose this kind of learning, because the current
-                    //prediction was not predicted.
-                    segment* pBestSegment=dummycell.BestSegment(0);
-                    pBestSegment->BlindSynapseAdding(this,0);
-                    SegmentUpdateList[1].push_back(pBestSegment);
-                }
+void layer::CellUpdater(void){
+    for(column dummyColumn: ColumnList){
+        for(cell dummyCell: dummyColumn.CellList){
+        //shift time by one step
+            dummyCell.active[1]=dummyCell.active[0];
+            dummyCell.active[0]=false;
+            dummyCell.expect[1]=dummyCell.expect[0];
+            dummyCell.expect[0]=false;
+            dummyCell.learn[1]=dummyCell.learn[0];
+            dummyCell.learn[0]=false;
+        }
+    }
+  //set those cells to active,expect,learn that were identified to do so previously
+    for(cell* pdummyCell:PendingActivity){
+        pdummyCell->active[0]=true;
+    }
+    PendingActivity=std::vector<cell*>();
+    for(cell* pdummyCell:PendingExpectation){
+        pdummyCell->expect[0]=true;
+    }
+    PendingExpectation=std::vector<cell*>();
+    for(cell* pdummyCell:PendingLearning){
+        pdummyCell->learn[0]=true;
+    }
+    PendingLearning=std::vector<cell*>();
+}
 
+void layer::SegmentUpdater(void){
+    for(cell* dummycell:CellUpdateList){
+        if(dummycell->active[0]==true){
+            if(dummycell->SegmentUpdateList[dummycell->SegmentUpdateList.size()-1]->EndOfSeq==true){
+                for(segment* dummySegment: dummycell->SegmentUpdateList){
+             //reward segments if cell is active and activity was predicted(EndOfSeq is true)
+                    dummySegment->AdaptingSynapses(dummySegment->PositiveLearning);
+                }
+                dummycell->SegmentUpdateList=std::vector<segment*>();
             }
-
+        }
+        else if(dummycell->expect[0]==false){
+            for(segment* dummySegment: dummycell->SegmentUpdateList){
+            //punish segments if cell is not active and not predicting; but was previously predicting
+                dummySegment->AdaptingSynapses(!(dummySegment->PositiveLearning));
+            }
+            dummycell->SegmentUpdateList=std::vector<segment*>();
         }
     }
-
-    //learning, i.e. implementing changes queued up in SegmentUpdateList
-    for(auto& dummySegment: SegmentUpdateList[0]){
-
-        //change to waiting for actual activation
-
-        //if the cell is active, the synapse should be reinforced.
-        //If the cell is inactive, the synapse should only be reinforced if
-        //the segment is not at the end of a sequence, otherwise the segment
-        //should be weakened
-        if(dummySegment->MotherCell->active[0]==true){
-            dummySegment->AdaptingSynapses(dummySegment->PositiveLearning);
-        }
-        else if(dummySegment->EndOfSeq==false&&dummySegment->MotherCell->expect[0]){
-            dummySegment->AdaptingSynapses(dummySegment->PositiveLearning);
-        }
-        else{
-            dummySegment->AdaptingSynapses(!(dummySegment->PositiveLearning));
-        }
-    }
-
-    std::vector<bool> activation_prediction;
-    //set for all cells in all columns active, expect, learn=false
-    //also delete last element of cell.active and cell.learn and add
-    //new element= false
-    //for next timestep!
-    return activation_prediction;
 }
 
 segment* column::BestMatchingSegmentInColumn(void){
@@ -525,8 +547,18 @@ void brain::update(){
         Dummylayer.ConnectedSynapsesUpdate();
         double MaxActivity=Dummylayer.ActivityLogUpdateFindMaxActivity();
         Dummylayer.BoostingUpdate_StrenthenWeak( MaxActivity);
+        Dummylayer.CellExpectInitiator();
+        Dummylayer.CellLearnInitiator();
+    }
+
+
+    //updates!
+    for(layer Dummylayer:ListLevels){
+        Dummylayer.CellUpdater();
+        Dummylayer.SegmentUpdater();
 
     }
+
 
 }
 
