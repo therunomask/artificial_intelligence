@@ -16,33 +16,31 @@ class segment;
 
 /*
  *
+ * draw flowchart
   create examples of lowest and top layer
-
-  check if prediction and activation are seen together from above layers
-  clean up spatial pooler,
-
-  check dependency of activity of cells of the same column! Also check magic numbers in relation to that
 
 // initialize lowest and highest level extra
 
 
-
 propagate confusion to higher layers
 
-update CellActivityList
-update Three_CellActivityList
-
-
-update all layers in parallel-> class brain
-
-temporäre variablen nicht in listen stecken!
-
-t=0 <=> jetzt; checken
 
 should we get rid of EndOfSequence at some point?
  */
 
 
+
+/* Theoretical Aspects to be reconsidered:
+ *
+ *
+ * EndOfSequence?
+ *
+ * Dopaminsystem?
+ *
+ * Is Inhibition radius a useful concept, or should one model a second inhibiting network?
+ *
+ *
+ */
 
 /*numbers to opmize
  *
@@ -107,7 +105,6 @@ private:
     constexpr static double InitCon=initial_connectedness;
             //cells in the segment
 
-    bool active;//segment is active if enough connected cells are active
 public:
     segment(cell* Cell_to_belong_to);
 
@@ -130,14 +127,14 @@ public:
         //CellCon.push_back(InitCon);
     }
 
-    void AdaptingSynapses(bool positive);
+    void AdaptingSynapses(bool positive);//increase connectedness
+    //of winners, decrease connectedness
+    //of all other cells in the segment, disconnect them if
+    //connection too weak.
 
     void BlindSynapseAdding(layer* level,size_t t);
 
-    void UpdateCon(std::vector<const cell*> winners );//increase connectedness
-        //of winners, decrease connectedness
-        //of all other cells in the segment, disconnect them if
-        //connection too weak.
+
 };
 
 class cell{
@@ -178,6 +175,7 @@ public:
     std::vector<cell> CellList;//List of cells in the colummn
 
     bool active;//activity of feed forward input
+    bool expect;
 
     double ActivityLog;//running average via geometric series
 
@@ -227,8 +225,6 @@ public:
 
     std::vector<column> ColumnList;//columns in the layer
 
-    std::vector<std::vector<segment*>> SegmentUpdateList;//list of segments to be updated next and last
-
     std::vector<cell*> CellActivityList;//update as fast as possible
 
     std::vector<std::vector<cell*>> Three_CellActivityList;//update parallel
@@ -240,6 +236,7 @@ public:
     std::vector<cell*> PendingLearning;
 
     void FindBestColumns(void);
+    void ActiveColumnUpdater(void);
     void ConnectedSynapsesUpdate(void);
     double ActivityLogUpdateFindMaxActivity(void);
     void BoostingUpdate_StrenthenWeak(double MaxActivity);
@@ -248,13 +245,14 @@ public:
     void CellExpectInitiator(void);
     void CellUpdater(void);
     void CellLearnInitiator(void);
+    void Three_CellListUpdater(void);
 };
 
 
 class brain{
 private:
     const size_t NumLevels;
-    const std::vector<layer> ListLevels;
+    std::vector<layer> ListLevels;
 
 public:
     brain(size_t Number_of_Levels, layer& LowestLayer, layer& Top, size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column);

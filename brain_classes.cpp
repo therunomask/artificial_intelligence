@@ -90,7 +90,6 @@ layer::layer(size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Colum
       p_lower_level(NULL),//still to be initialized for bottommost and highes layer
       p_upper_level(NULL),//still to be initialized for bottommost and highes layer
       ColumnList(std::vector<column>(Number_of_Column_per_Layer,column(this,Number_of_Cells_per_Column))),
-      SegmentUpdateList(std::vector<std::vector<segment*>>(2,std::vector<segment*>())),//obsolete
       CellActivityList(std::vector<cell*>()),
       Three_CellActivityList(std::vector<std::vector<cell*>>(2,std::vector<cell*>())),
       CellUpdateList(std::unordered_set<cell*>()),
@@ -107,6 +106,7 @@ column::column(layer* layer_to_belong_to, size_t Number_of_Cells_per_Column)
     MotherLayer(layer_to_belong_to),
     CellList(std::vector<cell>(Number_of_Cells_per_Column,cell(this))),
     active(false),
+    expect(false),
     ActivityLog(Initial_Activity_log),
     boosting(1.0)
 {
@@ -129,7 +129,6 @@ cell::cell(column* Column_to_belong_to)
 
 segment::segment(cell* Cell_to_belong_to)
     :
-      active(false),
       MotherCell(Cell_to_belong_to),
       Synapse(std::vector< std::pair <cell*,double>>() ),//still to be initialized afterward
       EndOfSeq(false)
@@ -138,11 +137,7 @@ segment::segment(cell* Cell_to_belong_to)
 }
 
 
-void segment::UpdateCon(std::vector<const cell*> winners ){//increase connectedness
-    //of winners, decrease connectedness
-    //of all other cells in the segment, disconnect them if
-    //connection too weak.
-}
+
 
 void layer::FindBestColumns(void){
     //finding #DesiredLocalActivity highest overlapping columns
@@ -168,10 +163,18 @@ void layer::FindBestColumns(void){
 
 }
 
+void layer::ActiveColumnUpdater(void){
+    //implement saved changes
+    for(size_t i=0;i<DesiredLocalActivity;++i){
+        ActColumns[i]=TempActColumns[i];
+    }
+}
+
+
 void layer::ConnectedSynapsesUpdate(void){
     //strengthen connections to columns that were active
     //weaken connections to columns that were inactive
-    for(auto& pdummyColumn: TempActColumns){
+    for(auto& pdummyColumn: ActColumns){
 
         for(auto& dummy_connected_synapse : pdummyColumn->ConnectedSynapses){
             if(dummy_connected_synapse.first->active==true){
@@ -205,7 +208,7 @@ double layer::ActivityLogUpdateFindMaxActivity(void){
 void layer::BoostingUpdate_StrenthenWeak(double MaxActivity){
 
     int Max_overlap=0;
-
+    //1. too little activity
     for(auto& dummy_column:ColumnList){
         //arbitrary boost function!!
         dummy_column.boosting=maximum_boosting-(maximum_boosting-1.0)*(dummy_column.ActivityLog/MaxActivity);
@@ -215,7 +218,7 @@ void layer::BoostingUpdate_StrenthenWeak(double MaxActivity){
         }
     }
     Max_overlap *=AverageOverlapMin;//otimize magic number!
-
+    //2. too little overlap
     for(auto& pillar : ColumnList){
         //strenthen pillars that never overlap uniformly
         if(pillar.tell_overlap_average() < Max_overlap){
@@ -235,7 +238,7 @@ double column::feed_input(void){
     //boosted overlap; also updates running averages
     int overlap=0;
     for(auto &syn : ConnectedSynapses){
-            overlap+=static_cast<int>( syn.first->active);
+            overlap+=static_cast<int>( syn.first->active&&syn.first->expect);
     }
     if(overlap<MinOverlap){
         overlap=0;
@@ -264,7 +267,7 @@ void layer::CellExpectInitiator( void ){
                     //we choose this kind of learning, because the current
                     //prediction was not predicted.
                     segment* pBestSegment=dummycell.BestSegment(1);
-                    pBestSegment->BlindSynapseAdding(this,1);
+                    pBestSegment->BlindSynapseAdding(this,1);//1 = last timestep
                     dummycell.SegmentUpdateList.push_back(pBestSegment);
                 }
             }
@@ -324,7 +327,9 @@ void layer::CellLearnInitiator(void){
 }
 
 void layer::CellUpdater(void){
+    CellActivityList=std::vector<cell*>();
     for(column dummyColumn: ColumnList){
+        dummyColumn.expect=false;
         for(cell dummyCell: dummyColumn.CellList){
         //shift time by one step
             dummyCell.active[1]=dummyCell.active[0];
@@ -337,11 +342,14 @@ void layer::CellUpdater(void){
     }
   //set those cells to active,expect,learn that were identified to do so previously
     for(cell* pdummyCell:PendingActivity){
+        CellActivityList.push_back(pdummyCell);
         pdummyCell->active[0]=true;
+
     }
     PendingActivity=std::vector<cell*>();
     for(cell* pdummyCell:PendingExpectation){
         pdummyCell->expect[0]=true;
+        pdummyCell->MotherColumn->expect=true;
     }
     PendingExpectation=std::vector<cell*>();
     for(cell* pdummyCell:PendingLearning){
@@ -349,6 +357,14 @@ void layer::CellUpdater(void){
     }
     PendingLearning=std::vector<cell*>();
 }
+
+void layer::Three_CellListUpdater(void){
+    Three_CellActivityList.pop_back();
+    Three_CellActivityList.insert(Three_CellActivityList.begin(),CellActivityList);
+    Three_CellActivityList[0].insert(Three_CellActivityList[0].begin(),p_lower_level->CellActivityList.begin(),p_lower_level->CellActivityList.end());
+    Three_CellActivityList[0].insert(Three_CellActivityList[0].begin(),p_upper_level->CellActivityList.begin(),p_upper_level->CellActivityList.end());
+}
+
 
 void layer::SegmentUpdater(void){
     for(cell* dummycell:CellUpdateList){
@@ -418,11 +434,8 @@ void cell::UpdateActiveSegments(void){
     //determine which segments are active by weighted sum of active cells
     //to wich the segments point
 
-    //when updating brain:!!!!!!!!!!!!!!!!!
-    //first update all segments of all cells of all columns of all layers,
-    //then update update all cells of all columns of all layers
-    //then all columns of all layers
-    ActiveSegments.erase(ActiveSegments.begin());
+
+    ActiveSegments.pop_back();
     std::vector<segment*> tempSegments;
     size_t max=0;
     double max_sum=0;
@@ -446,7 +459,7 @@ void cell::UpdateActiveSegments(void){
 
     std::iter_swap(tempSegments.begin(),tempSegments.begin()+max-1);
 
-    ActiveSegments.push_back(tempSegments);
+    ActiveSegments.insert(ActiveSegments.begin(),tempSegments);
 }
 
 segment* cell::BestSegment(size_t t){
@@ -520,31 +533,30 @@ void segment::AdaptingSynapses(bool positive){
 
 void brain::update(){
 /*updates:
- * layer::actcolumns
- * layer::SegmentUpdateList
- * layer::CellActivityList
- * layer::Three_CellActivityList
- * column::Overlap_Average
- * column::ConnectedSynapses
- * column::active
- * column::ActivityLog
- * column::boosting
- * cell::ActiveSegments
- * cell::active
- * cell::expect
- * cell::learn
- * segment::active
- * segment::Synapse
- * segment::EndOfSeq
+ * layer::actcolumns ←
+ * layer::SegmentUpdateList ←
+ * layer::CellActivityList ←
+ * layer::Three_CellActivityList ←
+ * column::Overlap_Average ←
+ * column::ConnectedSynapses ←
+ * column::active ←
+ * column::ActivityLog ←
+ * column::boosting ←
+ * cell::ActiveSegments ←
+ * cell::active ←
+ * cell::expect ←
+ * cell::learn ←
+ * segment::Synapse ←
+ * segment::EndOfSeq!!
  *
  * Do all layers in parallel, i.e. do the layers one after another
  * but don't implement updates until after the last layer.
 
 */
 
-    for(layer Dummylayer:ListLevels){
+    for(layer& Dummylayer:ListLevels){
         Dummylayer.FindBestColumns();
-        Dummylayer.ConnectedSynapsesUpdate();
+
         double MaxActivity=Dummylayer.ActivityLogUpdateFindMaxActivity();
         Dummylayer.BoostingUpdate_StrenthenWeak( MaxActivity);
         Dummylayer.CellExpectInitiator();
@@ -553,10 +565,22 @@ void brain::update(){
 
 
     //updates!
-    for(layer Dummylayer:ListLevels){
-        Dummylayer.CellUpdater();
-        Dummylayer.SegmentUpdater();
+    for(layer& DummyLayer:ListLevels){
+        DummyLayer.ActiveColumnUpdater();
+        DummyLayer.ConnectedSynapsesUpdate();
+        DummyLayer.CellUpdater();
+        DummyLayer.SegmentUpdater();
+        for(column& DummyColumn : DummyLayer.ColumnList){
+            for(cell& DummyCell: DummyColumn.CellList){
+                DummyCell.UpdateActiveSegments();
+            }
+        }
 
+
+    }
+    //needs an extra loop due to interference
+    for(layer& DummyLayer:ListLevels){
+        DummyLayer.Three_CellListUpdater();
     }
 
 
