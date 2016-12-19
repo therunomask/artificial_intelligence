@@ -17,15 +17,14 @@ class segment;
 /*
  *
  * draw flowchart
+ * → continue at updates
+ *
   create examples of lowest and top layer
 
-// initialize lowest and highest level extra
 
 
 propagate confusion to higher layers
 
-
-should we get rid of EndOfSequence at some point?
  */
 
 
@@ -153,7 +152,7 @@ public:
     std::vector<segment*> SegmentUpdateList;
 
     void UpdateActiveSegments(void);
-    segment* BestSegment(size_t t);
+    segment* BestSegmentInCell(size_t t);
 };
 
 class column{//contains connections to input and list of cells
@@ -245,9 +244,17 @@ public:
     void CellExpectInitiator(void);
     void CellUpdater(void);
     void CellLearnInitiator(void);
-    void Three_CellListUpdater(void);
+    void virtual Three_CellListUpdater(void);
 };
 
+
+class toplayer : public layer{
+    toplayer(size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column);
+//pointer to upper level stays NULL
+    //Three_CellActivityList is really a two_cellactivityList in this case
+    void Three_CellListUpdater(void);
+
+};
 
 class brain{
 private:
