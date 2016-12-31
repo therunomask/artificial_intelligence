@@ -19,7 +19,7 @@ class segment;
  * draw flowchart
  *
  *
-  create examples of lowest and top layer
+  create examples of lowest layer
 
 
 
@@ -234,11 +234,11 @@ public:
     std::vector<cell*> PendingExpectation;
     std::vector<cell*> PendingLearning;
 
-    void FindBestColumns(void);
+    void virtual FindBestColumns(void);
     void ActiveColumnUpdater(void);
-    void ConnectedSynapsesUpdate(void);
+    void virtual ConnectedSynapsesUpdate(void);
     double ActivityLogUpdateFindMaxActivity(void);
-    void BoostingUpdate_StrenthenWeak(double MaxActivity);
+    void virtual BoostingUpdate_StrenthenWeak(double MaxActivity);
     void SegmentUpdater(void);
 
     void CellExpectInitiator(void);
@@ -254,6 +254,18 @@ class toplayer : public layer{
     //Three_CellActivityList is really a two_cellactivityList in this case
     void Three_CellListUpdater(void);
 
+};
+
+class bottom_layer_torus : public layer{
+    bottom_layer_torus(size_t Number_of_Column_per_layer, size_t Number_of_Cells_per_Column);
+    //FindBestcolumns() is the best place to redefine dynamic of lowest layer by
+    //model specific behavior!
+
+    //not yet implemented; write 1. constructor, 2. FindBestcolumn, 3. Three_CellListUpdater
+    void FindBestColumns();
+    void ConnectedSynapsesUpdate(){ }//not necessary in lowest layer
+    void BoostingUpdate_StrenthenWeak(){ }//not necessary in lowest layer
+    void Three_CellListUpdater();
 };
 
 class brain{

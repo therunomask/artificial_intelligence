@@ -251,23 +251,31 @@ void layer::BoostingUpdate_StrenthenWeak(double MaxActivity){
 
 }
 
-
-
-double column::feed_input(void){
-    //computes overlap and
-    //boosted overlap; also updates running averages
-    int overlap=0;
-    for(auto &syn : ConnectedSynapses){
-        if(syn.second>minimal_overlap_under_consideration/(pillars_per_layer*active_pillers_per_pillar)){
-            overlap+=static_cast<int>( syn.first->active||syn.first->expect);
+void layer::SegmentUpdater(void){
+    for(cell* dummycell:CellUpdateList){
+        if(dummycell->active[0]==true){
+            if(dummycell->SegmentUpdateList[dummycell->SegmentUpdateList.size()-1]->EndOfSeq==true){
+                for(segment* dummySegment: dummycell->SegmentUpdateList){
+             //reward segments if cell is active and activity was predicted(EndOfSeq is true)
+                    dummySegment->AdaptingSynapses(dummySegment->PositiveLearning);
+                }
+                dummycell->SegmentUpdateList=std::vector<segment*>();
+                CellUpdateList.erase(dummycell);
+            }
+        }
+        else if(dummycell->expect[0]==false){
+            for(segment* dummySegment: dummycell->SegmentUpdateList){
+            //punish segments if cell is not active and not predicting; but was previously predicting
+                dummySegment->AdaptingSynapses(!(dummySegment->PositiveLearning));
+            }
+            dummycell->SegmentUpdateList=std::vector<segment*>();
+            CellUpdateList.erase(dummycell);
         }
     }
-    if(overlap<MinOverlap){
-        overlap=0;
-    }
-    Overlap_Average= Average_Exp*Overlap_Average+ overlap;
-    return overlap*boosting;
 }
+
+
+
 
 void layer::CellExpectInitiator( void ){
 
@@ -296,6 +304,43 @@ void layer::CellExpectInitiator( void ){
         }
     }
 }
+
+
+
+void layer::CellUpdater(void){
+    CellActivityList=std::vector<cell*>();
+    for(column dummyColumn: ColumnList){
+        dummyColumn.expect=false;
+        for(cell dummyCell: dummyColumn.CellList){
+        //shift time by one step
+            dummyCell.active[1]=dummyCell.active[0];
+            dummyCell.active[0]=false;
+            dummyCell.expect[1]=dummyCell.expect[0];
+            dummyCell.expect[0]=false;
+            dummyCell.learn[1]=dummyCell.learn[0];
+            dummyCell.learn[0]=false;
+        }
+    }
+  //set those cells to active,expect,learn that were identified to do so previously
+    for(cell* pdummyCell:PendingActivity){
+        CellActivityList.push_back(pdummyCell);
+        pdummyCell->active[0]=true;
+
+    }
+    PendingActivity=std::vector<cell*>();
+    for(cell* pdummyCell:PendingExpectation){
+        pdummyCell->expect[0]=true;
+        pdummyCell->MotherColumn->expect=true;
+    }
+    PendingExpectation=std::vector<cell*>();
+    for(cell* pdummyCell:PendingLearning){
+        pdummyCell->learn[0]=true;
+    }
+    PendingLearning=std::vector<cell*>();
+}
+
+
+
 
 void layer::CellLearnInitiator(void){
     //check if a cell predicted activation of a column
@@ -348,38 +393,6 @@ void layer::CellLearnInitiator(void){
     }
 }
 
-void layer::CellUpdater(void){
-    CellActivityList=std::vector<cell*>();
-    for(column dummyColumn: ColumnList){
-        dummyColumn.expect=false;
-        for(cell dummyCell: dummyColumn.CellList){
-        //shift time by one step
-            dummyCell.active[1]=dummyCell.active[0];
-            dummyCell.active[0]=false;
-            dummyCell.expect[1]=dummyCell.expect[0];
-            dummyCell.expect[0]=false;
-            dummyCell.learn[1]=dummyCell.learn[0];
-            dummyCell.learn[0]=false;
-        }
-    }
-  //set those cells to active,expect,learn that were identified to do so previously
-    for(cell* pdummyCell:PendingActivity){
-        CellActivityList.push_back(pdummyCell);
-        pdummyCell->active[0]=true;
-
-    }
-    PendingActivity=std::vector<cell*>();
-    for(cell* pdummyCell:PendingExpectation){
-        pdummyCell->expect[0]=true;
-        pdummyCell->MotherColumn->expect=true;
-    }
-    PendingExpectation=std::vector<cell*>();
-    for(cell* pdummyCell:PendingLearning){
-        pdummyCell->learn[0]=true;
-    }
-    PendingLearning=std::vector<cell*>();
-}
-
 void layer::Three_CellListUpdater(void){
     Three_CellActivityList.pop_back();
     Three_CellActivityList.insert(Three_CellActivityList.begin(),CellActivityList);
@@ -393,27 +406,21 @@ void toplayer::Three_CellListUpdater(void){
 }
 
 
-void layer::SegmentUpdater(void){
-    for(cell* dummycell:CellUpdateList){
-        if(dummycell->active[0]==true){
-            if(dummycell->SegmentUpdateList[dummycell->SegmentUpdateList.size()-1]->EndOfSeq==true){
-                for(segment* dummySegment: dummycell->SegmentUpdateList){
-             //reward segments if cell is active and activity was predicted(EndOfSeq is true)
-                    dummySegment->AdaptingSynapses(dummySegment->PositiveLearning);
-                }
-                dummycell->SegmentUpdateList=std::vector<segment*>();
-                CellUpdateList.erase(dummycell);
-            }
-        }
-        else if(dummycell->expect[0]==false){
-            for(segment* dummySegment: dummycell->SegmentUpdateList){
-            //punish segments if cell is not active and not predicting; but was previously predicting
-                dummySegment->AdaptingSynapses(!(dummySegment->PositiveLearning));
-            }
-            dummycell->SegmentUpdateList=std::vector<segment*>();
-            CellUpdateList.erase(dummycell);
+
+double column::feed_input(void){
+    //computes overlap and
+    //boosted overlap; also updates running averages
+    int overlap=0;
+    for(auto &syn : ConnectedSynapses){
+        if(syn.second>minimal_overlap_under_consideration/(pillars_per_layer*active_pillers_per_pillar)){
+            overlap+=static_cast<int>( syn.first->active||syn.first->expect);
         }
     }
+    if(overlap<MinOverlap){
+        overlap=0;
+    }
+    Overlap_Average= Average_Exp*Overlap_Average+ overlap;
+    return overlap*boosting;
 }
 
 segment* column::BestMatchingSegmentInColumn(void){
