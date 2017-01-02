@@ -202,7 +202,6 @@ private:
     size_t DesiredLocalActivity;
     //             v change to std::vector<column&>
     std::vector<column*> ActColumns;//active columns; maybe turn into array of active
-    std::vector<column*> TempActColumns;//active columns; maybe turn into array of active
 
     //initialize to (Num_Columns,100)!
     //running average of activity of cells
@@ -216,8 +215,11 @@ private:
 
 public:
 
-    layer(size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column);
+    layer(size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column, brain& pBrain);
 
+    std::vector<column*> TempActColumns;//active columns; maybe turn into array of active
+
+    brain& MotherBrain;
     const size_t Num_Columns;
     layer*  p_lower_level;//pointer to lower layer to receive input
     layer*  p_upper_level;//pointer to layer above current one
@@ -248,21 +250,25 @@ public:
 };
 
 
-class toplayer : public layer{
-    toplayer(size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column);
+class top_layer : public layer{
+public:
+    top_layer(size_t Number_of_Column_per_layer, size_t Number_of_Cells_per_Column, brain& pBrain);
 //pointer to upper level stays NULL
     //Three_CellActivityList is really a two_cellactivityList in this case
     void Three_CellListUpdater(void);
 
 };
 
-class bottom_layer_torus : public layer{
-    bottom_layer_torus(size_t Number_of_Column_per_layer, size_t Number_of_Cells_per_Column);
+class bottom_layer : public layer{
+public:
+    //feed function pointer to FindBestColumn()!
+    bottom_layer(size_t Number_of_Column_per_layer, size_t Number_of_Cells_per_Column,brain& pBrain,std::vector<bool>(*sensoryinput)(size_t time));
     //FindBestcolumns() is the best place to redefine dynamic of lowest layer by
     //model specific behavior!
 
     //not yet implemented; write 1. constructor, 2. FindBestcolumn, 3. Three_CellListUpdater
     void FindBestColumns();
+    std::vector<bool>(*external_input)(size_t time);
     void ConnectedSynapsesUpdate(){ }//not necessary in lowest layer
     void BoostingUpdate_StrenthenWeak(){ }//not necessary in lowest layer
     void Three_CellListUpdater();
@@ -274,8 +280,9 @@ private:
     std::vector<layer> ListLevels;
 
 public:
-    brain(size_t Number_of_Levels, layer& LowestLayer, layer& Top, size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column);
-    friend std::vector<layer> BrainConstructionHelper(brain Init_brain, size_t Number_of_Levels, layer& LowestLayer, layer& Top, size_t Number_of_Column_per_Layer,size_t Number_of_Cells_per_Column);
+    size_t time;
+    brain(size_t Number_of_Levels, size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column,std::vector<bool>(*sensoryinput)(size_t time));
+    friend std::vector<layer> BrainConstructionHelper(brain Init_brain, size_t Number_of_Levels, size_t Number_of_Column_per_Layer,size_t Number_of_Cells_per_Column,std::vector<bool>(*sensoryinput)(size_t time));
 
     void update(void);
     /*updates:

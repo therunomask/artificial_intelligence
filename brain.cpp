@@ -8,18 +8,18 @@
 #include <typeinfo>
 
 
-std::vector<layer> BrainConstructionHelper(brain Init_brain,size_t Number_of_Levels, layer& LowestLayer, layer& Top, size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column){
+std::vector<layer> BrainConstructionHelper(brain Init_brain,size_t Number_of_Levels, size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column,std::vector<bool>(*sensoryinput)(size_t time)){
 
     //maybe not yet finished, check this!
 
     std::vector<layer> ListOfLayers;
-    ListOfLayers.push_back(LowestLayer);
+    ListOfLayers.push_back(bottom_layer(Number_of_Column_per_Layer,Number_of_Cells_per_Column,Init_brain,sensoryinput));
 
     for(size_t i=1;i<Number_of_Levels-2;++i){
-        ListOfLayers.push_back(*(new layer(Number_of_Column_per_Layer, Number_of_Cells_per_Column)));
+        ListOfLayers.push_back(*(new layer(Number_of_Column_per_Layer, Number_of_Cells_per_Column, Init_brain)));
 
     }
-    ListOfLayers.push_back(Top);
+    ListOfLayers.push_back(top_layer(Number_of_Column_per_Layer,Number_of_Cells_per_Column, Init_brain));
 
     for(size_t i=1;i<ListOfLayers.size()-1;++i){
 // initialize lowest and highest level extra
@@ -29,6 +29,8 @@ std::vector<layer> BrainConstructionHelper(brain Init_brain,size_t Number_of_Lev
     }
     //toplayer
     ListOfLayers[ListOfLayers.size()-1].p_lower_level=&(ListOfLayers[ListOfLayers.size()-2]);
+    //bottomlayer
+    ListOfLayers[0].p_upper_level=&(ListOfLayers[1]);
 
     //now that layers exist, we connect columns to other columns
     //we choose at random which columns to connect to and
@@ -53,6 +55,18 @@ std::vector<layer> BrainConstructionHelper(brain Init_brain,size_t Number_of_Lev
     //how strong the connection is
     for(layer& DummyLayer: ListOfLayers){
         if(DummyLayer.p_lower_level==NULL){
+            for(column& DummyPillar: DummyLayer.ColumnList){
+                for(cell& DummyCell: DummyPillar.CellList){
+                    for(segment& DummySegment: DummyCell.SegList){
+                        for(size_t SynapseIndex=0;SynapseIndex<synapses_per_segment;SynapseIndex++){
+                            DummySegment.Synapse.push_back(std::pair<cell*,double>(&(DummyLayer.ColumnList[rand()%DummyLayer.Num_Columns].CellList[rand()%Number_of_Cells_per_Column]),(static_cast<double>(rand())/RAND_MAX+1)*Minimal_sum_of_synapseweights_for_activity/(cells_per_column*active_pillers_per_pillar*pillars_per_layer)));
+                            DummySegment.Synapse.push_back(std::pair<cell*,double>(&(DummyLayer.p_upper_level->ColumnList[rand()%DummyLayer.Num_Columns].CellList[rand()%Number_of_Cells_per_Column]),(static_cast<double>(rand())/RAND_MAX+1)*Minimal_sum_of_synapseweights_for_activity/(cells_per_column*active_pillers_per_pillar*pillars_per_layer)));
+                        }
+
+                    }
+                }
+
+            }
             continue;
         }
         if(DummyLayer.p_upper_level==NULL){
@@ -87,9 +101,10 @@ std::vector<layer> BrainConstructionHelper(brain Init_brain,size_t Number_of_Lev
     return ListOfLayers;
 }
 
-brain::brain(size_t Number_of_Levels, layer& LowestLayer, layer& Top, size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column)
+brain::brain(size_t Number_of_Levels, size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column,std::vector<bool>(*sensoryinput)(size_t time))
     :NumLevels(Number_of_Levels),
-      ListLevels(BrainConstructionHelper(*this, NumLevels ,LowestLayer, Top,Number_of_Column_per_Layer,Number_of_Cells_per_Column))
+      time(0),
+      ListLevels(BrainConstructionHelper(*this, NumLevels ,Number_of_Column_per_Layer,Number_of_Cells_per_Column,sensoryinput))
 
 {
 
@@ -98,12 +113,13 @@ brain::brain(size_t Number_of_Levels, layer& LowestLayer, layer& Top, size_t Num
 
 
 
-layer::layer(size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column)
+layer::layer(size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column, brain &pBrain)
     :
 
       DesiredLocalActivity((static_cast<int>(Number_of_Column_per_Layer*FractionOfActiveColumns))),
       ActColumns(std::vector<column*>(DesiredLocalActivity,NULL)),
       TempActColumns(std::vector<column*>(DesiredLocalActivity,NULL)),
+      MotherBrain(pBrain),
       Num_Columns(Number_of_Column_per_Layer),
       p_lower_level(NULL),//still to be initialized for bottommost and highes layer
       p_upper_level(NULL),//still to be initialized for bottommost and highes layer
@@ -118,6 +134,17 @@ layer::layer(size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Colum
 
 }
 
+top_layer::top_layer(size_t Number_of_Column_per_layer, size_t Number_of_Cells_per_Column, brain &pBrain):
+    layer( Number_of_Column_per_layer, Number_of_Cells_per_Column, pBrain)
+{
+}
+
+bottom_layer::bottom_layer(size_t Number_of_Column_per_layer, size_t Number_of_Cells_per_Column, brain &pBrain, std::vector<bool>(*sensoryinput)(size_t time))
+    :
+    layer( Number_of_Column_per_layer, Number_of_Cells_per_Column, pBrain)
+{
+    external_input=sensoryinput;
+}
 
 column::column(layer* layer_to_belong_to, size_t Number_of_Cells_per_Column)
     :
@@ -399,13 +426,28 @@ void layer::Three_CellListUpdater(void){
     Three_CellActivityList[0].insert(Three_CellActivityList[0].begin(),p_lower_level->CellActivityList.begin(),p_lower_level->CellActivityList.end());
     Three_CellActivityList[0].insert(Three_CellActivityList[0].begin(),p_upper_level->CellActivityList.begin(),p_upper_level->CellActivityList.end());
 }
-void toplayer::Three_CellListUpdater(void){
+void top_layer::Three_CellListUpdater(void){
     Three_CellActivityList.pop_back();
     Three_CellActivityList.insert(Three_CellActivityList.begin(),CellActivityList);
     Three_CellActivityList[0].insert(Three_CellActivityList[0].begin(),p_lower_level->CellActivityList.begin(),p_lower_level->CellActivityList.end());
 }
 
 
+void bottom_layer:: FindBestColumns(){
+    std::vector<bool> sensory_input=external_input(MotherBrain.time);
+
+    TempActColumns=std::vector<column*>();
+    for(size_t index=0;index<Num_Columns;++index){
+        if(sensory_input[index]==true) TempActColumns.push_back(&ColumnList[index]);
+
+    }
+}
+
+void bottom_layer::Three_CellListUpdater(){
+    Three_CellActivityList.pop_back();
+    Three_CellActivityList.insert(Three_CellActivityList.begin(),CellActivityList);
+    Three_CellActivityList[0].insert(Three_CellActivityList[0].begin(),p_upper_level->CellActivityList.begin(),p_upper_level->CellActivityList.end());
+}
 
 double column::feed_input(void){
     //computes overlap and
@@ -621,6 +663,7 @@ void brain::update(){
         DummyLayer.Three_CellListUpdater();
     }
 
-
+    //update inner clock
+    ++time;
 }
 
