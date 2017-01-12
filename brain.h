@@ -15,11 +15,11 @@ class segment;
 
 
 /*
+ *fix mother-problem
  *
- * draw flowchart
  *
  *
-  create examples of lowest layer
+
 
 
 
@@ -164,13 +164,13 @@ private:
 
 
 public:
-    column(layer* layer_to_belong_to, size_t Number_of_Cells_per_Column);
+    column(layer& layer_to_belong_to, size_t Number_of_Cells_per_Column);
 
     constexpr static double Average_Exp= column_geometric_factor; //Take average of overlap
               //correspons to 65% of whole value was determined in the last 100 steps
     std::vector<std::pair<column*,double>> ConnectedSynapses;//list of pointers to "connected" synapses and connection strength
 
-    layer* const MotherLayer;
+    layer& MotherLayer;
     std::vector<cell> CellList;//List of cells in the colummn
 
     bool active;//activity of feed forward input
@@ -201,7 +201,6 @@ private:
     constexpr static double FractionOfActiveColumns=active_pillers_per_pillar;
     size_t DesiredLocalActivity;
     //             v change to std::vector<column&>
-    std::vector<column*> ActColumns;//active columns; maybe turn into array of active
 
     //initialize to (Num_Columns,100)!
     //running average of activity of cells
@@ -216,6 +215,8 @@ private:
 public:
 
     layer(size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column, brain& pBrain);
+
+    std::vector<column*> ActColumns;//active columns; maybe turn into array of active
 
     std::vector<column*> TempActColumns;//active columns; maybe turn into array of active
 
@@ -282,7 +283,7 @@ private:
 public:
     size_t time;
     brain(size_t Number_of_Levels, size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column,std::vector<bool>(*sensoryinput)(size_t time));
-    friend std::vector<layer> BrainConstructionHelper(brain Init_brain, size_t Number_of_Levels, size_t Number_of_Column_per_Layer,size_t Number_of_Cells_per_Column,std::vector<bool>(*sensoryinput)(size_t time));
+    friend std::vector<layer> BrainConstructionHelper(brain& Init_brain, size_t Number_of_Levels, size_t Number_of_Column_per_Layer,size_t Number_of_Cells_per_Column,std::vector<bool>(*sensoryinput)(size_t time));
 
     void update(void);
     /*updates:
