@@ -13,7 +13,7 @@ std::vector<layer> BrainConstructionHelper(brain& Init_brain,size_t Number_of_Le
     //maybe not yet finished, check this!
 
     std::vector<layer> ListOfLayers;
-    ListOfLayers.push_back(bottom_layer(Number_of_Column_per_Layer,Number_of_Cells_per_Column,Init_brain,sensoryinput));
+    ListOfLayers.emplace_back(bottom_layer(Number_of_Column_per_Layer,Number_of_Cells_per_Column,Init_brain,sensoryinput));
 
     for(size_t i=1;i<Number_of_Levels-2;++i){
         ListOfLayers.push_back(*(new layer(Number_of_Column_per_Layer, Number_of_Cells_per_Column, Init_brain)));
@@ -98,6 +98,10 @@ std::vector<layer> BrainConstructionHelper(brain& Init_brain,size_t Number_of_Le
         }
     }
 
+
+
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+    std::cout<<"my address is initially "<<&(ListOfLayers[0])<<std::endl;
     return ListOfLayers;
 }
 
@@ -111,9 +115,11 @@ brain::brain(size_t Number_of_Levels, size_t Number_of_Column_per_Layer, size_t 
 
 }
 
+bool debug1 =false;
+bool debug2 = false;
 
 
-layer::layer(size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column, brain &pBrain)
+layer::layer(size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column, brain& pBrain)
     :
 
       DesiredLocalActivity((static_cast<int>(Number_of_Column_per_Layer*FractionOfActiveColumns))),
@@ -135,6 +141,10 @@ layer::layer(size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Colum
     for (column*& dummycolumn: ActColumns){
         dummycolumn=&ColumnList[rand()%ColumnList.size()];
     }
+    if(debug1==false){
+        std::cout<<" first initialized layer has address "<<this<<std::endl;
+        debug1=true;
+    }
 }
 
 top_layer::top_layer(size_t Number_of_Column_per_layer, size_t Number_of_Cells_per_Column, brain &pBrain):
@@ -149,6 +159,7 @@ bottom_layer::bottom_layer(size_t Number_of_Column_per_layer, size_t Number_of_C
     external_input=sensoryinput;
 }
 
+
 column::column(layer& layer_to_belong_to, size_t Number_of_Cells_per_Column)
     :
     Overlap_Average(Initial_Overlap_Average),
@@ -160,6 +171,12 @@ column::column(layer& layer_to_belong_to, size_t Number_of_Cells_per_Column)
     ActivityLog(Initial_Activity_log),
     boosting(1.0)
 {
+    if(debug2 == false){
+        std::cout<<" first initialized column gets the address "<<&(layer_to_belong_to)<<std::endl;
+        std::cout<<" the address of my mother is "<<&(MotherLayer)<<std::endl;
+
+        debug2=true;
+    }
 
 }
 
@@ -714,16 +731,20 @@ void brain::update(){
 
 */
     std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
-    if(&(ListLevels[0].MotherBrain) == this){
+    if(&(ListLevels[1].MotherBrain) == this){
         std::cout<<" first layer has a mother \n";
     }
-
-    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
-    if(ListLevels[0].ColumnList[0].CellList[0].SegList[0].MotherCell== &(ListLevels[0].ColumnList[0].CellList[0])){
-        std::cout<<" first segment has a mother \n";
+    if(ListLevels[0].p_upper_level == &(ListLevels[1]) ){
+        std::cout<<" lowest layer has one above it \n";
     }
-    if(&(ListLevels[0].ColumnList[0].MotherLayer)== &(ListLevels[0])){
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+    std::cout<<" the address of my mother is "<<&(ListLevels[0].ColumnList[0].MotherLayer)<<", said the column\n";
+    std::cout<<" my address is "<<&(ListLevels[0])<<", said the layer\n";
+    if(&(ListLevels[1].ColumnList[0].MotherLayer)== &(ListLevels[1]) ){
         std::cout<<" first column has a mother \n";
+    }
+    if(ListLevels[1].ColumnList[0].CellList[0].SegList[0].MotherCell== &(ListLevels[1].ColumnList[0].CellList[0])){
+        std::cout<<" first segment has a mother \n";
     }
 
     for(layer& Dummylayer:ListLevels){

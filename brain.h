@@ -16,8 +16,8 @@ class segment;
 
 /*
  *fix mother-problem
- *
- *
+ * use emplace_back for this
+ * do something else for list of layers!
  *
 
 
