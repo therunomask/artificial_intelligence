@@ -15,9 +15,16 @@ class segment;
 
 
 /*
- *fix mother-problem
+ * fix mother-problem
  * use emplace_back for this
  * do something else for list of layers!
+ *
+ * last two layers are not correctly found by AllLayers
+ * Layers are not correctly found by their columns; the all columns with index below the
+ * first power of two below the number of layers-2
+ *
+ * pick something else as std::vector that cannot change size
+ * and change copying behavior
  *
 
 
@@ -105,9 +112,9 @@ private:
             //cells in the segment
 
 public:
-    segment(cell* Cell_to_belong_to);
+    segment(cell& Cell_to_belong_to);
 
-    cell* const MotherCell;                            //3*activeCollumns per layer
+    cell& MotherCell;                            //3*activeCollumns per layer
     constexpr static double MinSynapseWeightActivity=Minimal_sum_of_synapseweights_for_activity;
     std::vector< std::pair <cell*,double>> Synapse;//pointer to adresses of cells in the segment
     //and connectedness values of the synapses in the segment
@@ -139,9 +146,9 @@ public:
 class cell{
     //write constructor!!!!
 public:
-    cell(column* Column_to_belong_to);
+    cell(column& Column_to_belong_to);
 
-    column* const MotherColumn;
+    column& MotherColumn;
     std::vector<segment> SegList;//list of segments (net of horizontal
             // connections) of this cell
     std::vector<std::vector<segment*>> ActiveSegments;//list of active segments of
@@ -269,6 +276,8 @@ public:
 
     //not yet implemented; write 1. constructor, 2. FindBestcolumn, 3. Three_CellListUpdater
     void FindBestColumns();
+
+
     std::vector<bool>(*external_input)(size_t time);
     void ConnectedSynapsesUpdate(){ }//not necessary in lowest layer
     void BoostingUpdate_StrenthenWeak(){ }//not necessary in lowest layer
@@ -278,12 +287,15 @@ public:
 class brain{
 private:
     const size_t NumLevels;
-    std::vector<layer> ListLevels;
+    std::vector<layer> ListOfLevels;
+    bottom_layer LowestLayer;
+    top_layer    HighestLayer;
+    std::vector<layer*> AllLevels;
 
 public:
     size_t time;
     brain(size_t Number_of_Levels, size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column,std::vector<bool>(*sensoryinput)(size_t time));
-    friend std::vector<layer> BrainConstructionHelper(brain& Init_brain, size_t Number_of_Levels, size_t Number_of_Column_per_Layer,size_t Number_of_Cells_per_Column,std::vector<bool>(*sensoryinput)(size_t time));
+    friend void BrainConstructionHelper(brain& Init_brain, size_t Number_of_Levels, size_t Number_of_Column_per_Layer,size_t Number_of_Cells_per_Column/*,std::vector<bool>(*sensoryinput)(size_t time)*/);
 
     void update(void);
     /*updates:
