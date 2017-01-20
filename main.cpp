@@ -5,11 +5,15 @@
 #include "brain.cpp"
 
 std::vector<bool> senses(size_t time){
-    std::vector<bool> output;
-    for(size_t index; index<pillars_per_layer;++index){
-        output.push_back(false);
-    }
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
+    std::vector<bool> output(pillars_per_layer,false);
+    //for(size_t index; index<pillars_per_layer;++index){
+    //    output.push_back(false);
+    //}
     output[time%pillars_per_layer]=true;
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
 
     return output;
 }
@@ -30,7 +34,7 @@ int main(int argc, char *argv[])
         std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
         joseph.update();
         std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
-        std::cout<<joseph.time<<std::endl;
+        std::cout<<"it is now "<<joseph.time<<" o'clock"<<std::endl;
     }
 
     return 0;

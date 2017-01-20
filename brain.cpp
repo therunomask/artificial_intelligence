@@ -6,6 +6,7 @@
 #include <time.h>
 #include <unordered_set>
 #include <typeinfo>
+#include <stdexcept>
 
 
 void BrainConstructionHelper(brain& Init_brain,size_t Number_of_Levels, size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column/*,std::vector<bool>(*sensoryinput)(size_t time)*/){
@@ -115,6 +116,7 @@ brain::brain(size_t Number_of_Levels, size_t Number_of_Column_per_Layer, size_t 
       HighestLayer(top_layer(Number_of_Column_per_Layer,Number_of_Cells_per_Column,*this)),
       AllLevels(std::vector<layer*>())
 {
+    ListOfLevels.reserve(Number_of_Levels);
     for(size_t i=0;i<Number_of_Levels-2;++i){
         ListOfLevels.emplace_back(Number_of_Column_per_Layer, Number_of_Cells_per_Column, *this);
     }
@@ -148,6 +150,7 @@ layer::layer(size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Colum
       PendingExpectation(std::vector<cell*>()),
       PendingLearning(std::vector<cell*>())
 {
+    ColumnList.reserve(Number_of_Column_per_Layer);
     for(size_t index=0;index<Number_of_Column_per_Layer;++index){
         ColumnList.emplace_back(*this,Number_of_Cells_per_Column);
     }
@@ -160,6 +163,18 @@ layer::layer(size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Colum
         std::cout<<&ColumnList[0]<<"is the address of the first column in the layer constructor \n";
         debug3=true;
     }
+}
+
+layer::layer(const layer &dummylayer):
+    MotherBrain(dummylayer.MotherBrain),
+    Num_Columns(dummylayer.Num_Columns)
+
+{
+    std::cout<<"Freeze! You are copying layers! \n";
+    throw std::invalid_argument("Don't copy layers \n");
+
+   // return bla;
+
 }
 
 top_layer::top_layer(size_t Number_of_Column_per_layer, size_t Number_of_Cells_per_Column, brain &pBrain):
@@ -188,6 +203,7 @@ column::column(layer& layer_to_belong_to, size_t Number_of_Cells_per_Column)
     ActivityLog(Initial_Activity_log),
     boosting(1.0)
 {
+    CellList.reserve(Number_of_Cells_per_Column);
     for(size_t index=0; index<Number_of_Cells_per_Column;++index){
         CellList.emplace_back(*this);
     }
@@ -195,6 +211,12 @@ column::column(layer& layer_to_belong_to, size_t Number_of_Cells_per_Column)
         std::cout<<" first column initializing is at "<<this<<std::endl;
         debug2=true;
     }
+}
+
+column::column(const column &dummycolumn):
+    MotherLayer(dummycolumn.MotherLayer)
+{
+    throw std::invalid_argument("Don't copy columns! \n");
 }
 
 bool debug1 =false;
@@ -209,6 +231,7 @@ cell::cell(column& Column_to_belong_to)
       learn(2,false),
       SegmentUpdateList(std::vector<segment*>())
 {
+    SegList.reserve(synapses_per_segment);
     for(size_t index=0; index<synapses_per_segment;++index){
         SegList.emplace_back(*this);
     }
@@ -216,6 +239,12 @@ cell::cell(column& Column_to_belong_to)
         std::cout<<" first initialized address given to a cell "<<&Column_to_belong_to<<std::endl;
         debug1=true;
     }
+}
+
+cell::cell(const cell& dummycell):
+    MotherColumn(dummycell.MotherColumn)
+{
+    throw std::invalid_argument("Don't copy cells! \n");
 }
 
 segment::segment(cell& Cell_to_belong_to)
@@ -226,7 +255,12 @@ segment::segment(cell& Cell_to_belong_to)
 {
 
 }
+segment::segment(const segment &dummysegment):
+    MotherCell(dummysegment.MotherCell)
+{
+    throw std::invalid_argument("Don't copy segments! \n");
 
+}
 
 
 
@@ -323,26 +357,41 @@ void layer::BoostingUpdate_StrenthenWeak(double MaxActivity){
 }
 
 void layer::SegmentUpdater(void){
+
+    bool erased=false;
+
+
     for(cell* dummycell:CellUpdateList){
         if(dummycell->active[0]==true){
+
             if(dummycell->SegmentUpdateList[dummycell->SegmentUpdateList.size()-1]->EndOfSeq==true){
-                for(segment* dummySegment: dummycell->SegmentUpdateList){
+                for(segment*& dummySegment: dummycell->SegmentUpdateList){
              //reward segments if cell is active and activity was predicted(EndOfSeq is true)
                     dummySegment->AdaptingSynapses(dummySegment->PositiveLearning);
                 }
                 dummycell->SegmentUpdateList=std::vector<segment*>();
                 CellUpdateList.erase(dummycell);
+                erased=true;
+                break;
             }
         }
         else if(dummycell->expect[0]==false){
-            for(segment* dummySegment: dummycell->SegmentUpdateList){
+
+            for(segment*& dummySegment: dummycell->SegmentUpdateList){
             //punish segments if cell is not active and not predicting; but was previously predicting
                 dummySegment->AdaptingSynapses(!(dummySegment->PositiveLearning));
             }
             dummycell->SegmentUpdateList=std::vector<segment*>();
             CellUpdateList.erase(dummycell);
+            erased=true;
+            break;
         }
+
     }
+    if(erased==true){
+        this->SegmentUpdater();
+    }
+
 }
 
 
@@ -389,9 +438,10 @@ void layer::CellExpectInitiator( void ){
 
 void layer::CellUpdater(void){
     CellActivityList=std::vector<cell*>();
-    for(column dummyColumn: ColumnList){
+
+    for(column& dummyColumn: ColumnList){
         dummyColumn.expect=false;
-        for(cell dummyCell: dummyColumn.CellList){
+        for(cell& dummyCell: dummyColumn.CellList){
         //shift time by one step
             dummyCell.active[1]=dummyCell.active[0];
             dummyCell.active[0]=false;
@@ -402,18 +452,18 @@ void layer::CellUpdater(void){
         }
     }
   //set those cells to active,expect,learn that were identified to do so previously
-    for(cell* pdummyCell:PendingActivity){
+    for(cell*& pdummyCell:PendingActivity){
         CellActivityList.push_back(pdummyCell);
         pdummyCell->active[0]=true;
 
     }
     PendingActivity=std::vector<cell*>();
-    for(cell* pdummyCell:PendingExpectation){
+    for(cell*& pdummyCell:PendingExpectation){
         pdummyCell->expect[0]=true;
         pdummyCell->MotherColumn.expect=true;
     }
     PendingExpectation=std::vector<cell*>();
-    for(cell* pdummyCell:PendingLearning){
+    for(cell*& pdummyCell:PendingLearning){
         pdummyCell->learn[0]=true;
     }
     PendingLearning=std::vector<cell*>();
@@ -426,14 +476,24 @@ void layer::CellLearnInitiator(void){
     //check if a cell predicted activation of a column
     //if so, change its synapses.
     //if not choose cell to predict same activation in the future
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+    std::cout<<"there are "<<ActColumns.size()<<" active columns\n";
+    for(column*& active_pillar: ActColumns){
+        active_pillar->who_am_I();
 
+    }
     for(column*& active_pillar: ActColumns){
         bool predicted=false;//dummy variable checks of predicting cell is found
         bool is_chosen=false;//also dummy
 
+        std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+        active_pillar->who_am_I();
+        std::cout<<"there are "<<active_pillar->CellList.size()<<" cells\n";
         for(cell& activePillarCell: active_pillar->CellList){
+            std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
             if(activePillarCell.expect[1]==true){
+                std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
                 segment* s=NULL;
                 //find segment of cell that signified the end of a sequence
@@ -446,6 +506,7 @@ void layer::CellLearnInitiator(void){
                 if( s==NULL){
                     continue;
                 }
+                std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
                 predicted=true;
                 PendingActivity.push_back(&activePillarCell);
@@ -457,9 +518,11 @@ void layer::CellLearnInitiator(void){
                         is_chosen=true;
                         break;
                     }
+
                 }
             }
         }
+        std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
         if(predicted==false){
 
@@ -467,7 +530,10 @@ void layer::CellLearnInitiator(void){
                 PendingActivity.push_back(&PillarCell);
             }
         }
+        std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
         if(is_chosen==false){
+            std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
             //get best matching cell in last timestep
             segment* pBestSegment= active_pillar->BestMatchingSegmentInColumn();
@@ -498,9 +564,14 @@ void top_layer::Three_CellListUpdater(void){
 
 
 void bottom_layer:: FindBestColumns(){
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
     std::vector<bool> sensory_input=external_input(MotherBrain.time);
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
     TempActColumns=std::vector<column*>();
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
     for(size_t index=0;index<Num_Columns;++index){
         if(sensory_input[index]==true) TempActColumns.push_back(&ColumnList[index]);
 
@@ -576,8 +647,12 @@ void cell::UpdateActiveSegments(void){
     //determine which segments are active by weighted sum of active cells
     //to wich the segments point
 
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
     ActiveSegments.pop_back();
+    std::cout<<"there are "<<ActiveSegments.size()<<" active segments! \n";
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
     std::vector<segment*> tempSegments;
     size_t max=0;
     double max_sum=0;
@@ -598,8 +673,12 @@ void cell::UpdateActiveSegments(void){
 
         }
     }
-
-    std::iter_swap(tempSegments.begin(),tempSegments.begin()+max-1);
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+    std::cout<<max<<" is max\n";
+    if(max>0){//something will be changed
+        std::iter_swap(tempSegments.begin(),tempSegments.begin()+max-1);
+    }
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
     ActiveSegments.insert(ActiveSegments.begin(),tempSegments);
 }
@@ -696,67 +775,161 @@ void brain::update(){
  * but don't implement updates until after the last layer.
 
 */
-    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
-    if(this==&AllLevels[3]->MotherBrain){
-        std::cout<<"third layer has a mother\n";
-    }
 
-    for(size_t index=0;index<AllLevels.size();++index){
-        if(AllLevels[index]==&AllLevels[index]->ColumnList[0].MotherLayer){
-            std::cout<<index<<"-th layer is found by its children\n";
+
+    /* debugging tool
+    bool dbool=false;
+    for(size_t index1=0;index1<AllLevels.size();++index1){
+        if(&AllLevels[index1]->MotherBrain!=this&&dbool==false){
+            std::cout<<index1<<"-th layer does not find its mother\n";
+            dbool=true;
         }
-        if(AllLevels[index+1]==&ListOfLevels[index]){
-            std::cout<<index<<"-th layer is correctly located in AllLevels\n";
+        for(size_t index2=0;index2<AllLevels[index1]->ColumnList.size();++index2){
+            if(&AllLevels[index1]->ColumnList[index2].MotherLayer!=AllLevels[index1]&&dbool==false){
+                std::cout<<index2<<"-th column of "<<index1<<"-th layer does not find its mother\n";
+                dbool=true;
+            }
+            for(size_t index3=0;index3<AllLevels[index1]->ColumnList[index2].CellList.size();++index3){
+                if(&AllLevels[index1]->ColumnList[index2].CellList[index3].MotherColumn!=&AllLevels[index1]->ColumnList[index2]&&dbool==false){
+                    std::cout<<index3<<"-th cell of "<<index2<<"-th column of "<<index1<<"-th layer does not find its mother\n";
+                    dbool=true;
+                }
+                for(size_t index4=0;index4<AllLevels[index1]->ColumnList[index2].CellList[index3].SegList.size();++index4){
+                    if(&AllLevels[index1]->ColumnList[index2].CellList[index3].SegList[index4].MotherCell!=&AllLevels[index1]->ColumnList[index2].CellList[index3]&&dbool==false){
+                        std::cout<<index4<<"-th segment of "<<index3<<"-th cell of "<<index2<<"-th column of "<<index1<<"-th layer does not find its mother\n";
+                        dbool=true;
+                    }
+
+                }
+            }
+        }
+
+    }
+    if(dbool==false){
+        std::cout<<"everything works! \n";
+    }
+    dbool=false;
+    for(size_t i=0;i<AllLevels.size()-1;++i){
+        if(AllLevels[i]->p_upper_level!=AllLevels[i+1]){
+            dbool=true;
+            break;
+        }
+        if(AllLevels[i+1]->p_lower_level!=AllLevels[i]){
+            dbool=true;
+            break;
         }
     }
-    std::cout<<"There are "<<AllLevels.size()<<" levels\n";
+    if(dbool==false){
+        std::cout<<"everything works2! \n";
+    }*/
 
-    std::cout<<AllLevels[0]->ColumnList.size()<<"is the length of columnlist\n";
 
-    if(&AllLevels[0]->ColumnList[0]==&AllLevels[0]->ColumnList[0].CellList[0].MotherColumn){
-        std::cout<<"third cell of second column of fourth layer has a mother\n";
-    }
-    std::cout<<"address of actual column is "<<&AllLevels[0]->ColumnList[0]<<std::endl;
-    std::cout<<"imaginary address of column is "<<&AllLevels[0]->ColumnList[0].CellList[0].MotherColumn<<std::endl;
-
-    for(layer& Dummylayer:ListOfLevels){
-        std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
-        std::cout<<"there are "<<Dummylayer.ActColumns.size()<<" active columns \n";
-
-        Dummylayer.FindBestColumns();
-
-        double MaxActivity=Dummylayer.ActivityLogUpdateFindMaxActivity();
-        Dummylayer.BoostingUpdate_StrenthenWeak( MaxActivity);
-        Dummylayer.CellExpectInitiator();
+    for(layer*& Dummylayer:AllLevels){
         std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
-        Dummylayer.CellLearnInitiator();
+        Dummylayer->FindBestColumns();
+
+        double MaxActivity=Dummylayer->ActivityLogUpdateFindMaxActivity();
+        Dummylayer->BoostingUpdate_StrenthenWeak( MaxActivity);
+        Dummylayer->CellExpectInitiator();
+        std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
+        Dummylayer->CellLearnInitiator();
         std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
     }
 
 
     //updates!
-    for(layer& DummyLayer:ListOfLevels){
-        DummyLayer.ActiveColumnUpdater();
-        DummyLayer.ConnectedSynapsesUpdate();
-        DummyLayer.CellUpdater();
-        DummyLayer.SegmentUpdater();
+    for(layer*& DummyLayer:AllLevels){
+        std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
+        DummyLayer->ActiveColumnUpdater();
+        std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
+        DummyLayer->ConnectedSynapsesUpdate();
+        std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
+        DummyLayer->CellUpdater();
+        std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
+        DummyLayer->SegmentUpdater();
+        std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
 
 
     }
     //needs an extra loop due to interference
-    for(layer& DummyLayer:ListOfLevels){
-        for(column& DummyColumn : DummyLayer.ColumnList){
+    for(layer*& DummyLayer:AllLevels){
+        std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
+        for(column& DummyColumn : DummyLayer->ColumnList){
             for(cell& DummyCell: DummyColumn.CellList){
+                std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
                 DummyCell.UpdateActiveSegments();
             }
         }
-        DummyLayer.Three_CellListUpdater();
+        std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
+        DummyLayer->Three_CellListUpdater();
     }
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
     //update inner clock
     ++time;
 }
 
+//only debugging after this mark
+
+size_t layer::finding_oneself(){
+    for(size_t i=0;i<MotherBrain.AllLevels.size();++i){
+        if(MotherBrain.AllLevels[i]==this){
+            return i;
+        }
+    }
+    throw std::invalid_argument("layer got lost finding itself \n");
+
+}
+void layer::who_am_I(void){
+    std::cout<<"I am layer "<<finding_oneself()<<std::endl;
+}
+
+size_t column::finding_oneself(){
+    for(size_t i=0;i<MotherLayer.ColumnList.size();++i){
+        if(&MotherLayer.ColumnList[i]==this){
+            return i;
+        }
+    }
+    throw std::invalid_argument("column got lost finding itself \n");
+
+}
+void column::who_am_I(void){
+    std::cout<<"I am column "<<finding_oneself()<<" of layer "<<MotherLayer.finding_oneself()<<std::endl;
+}
+size_t cell::finding_oneself(){
+    for(size_t i=0;i<MotherColumn.CellList.size();++i){
+        if(&MotherColumn.CellList[i]==this){
+            return i;
+        }
+    }
+    throw std::invalid_argument("cell got lost finding itself \n");
+
+}
+void cell::who_am_I(void){
+    std::cout<<"I am cell "<<finding_oneself();
+    std::cout<<" of column "<<MotherColumn.finding_oneself();
+    std::cout<<" of layer "<<MotherColumn.MotherLayer.finding_oneself()<<std::endl;
+}
+size_t segment::finding_oneself(){
+    for(size_t i=0;i<MotherCell.SegList.size();++i){
+        if(&MotherCell.SegList[i]==this){
+            return i;
+        }
+    }
+    throw std::invalid_argument("segment got lost finding itself \n");
+
+}
+void segment::who_am_I(void){
+    std::cout<<"I am segment "<<finding_oneself()<<" of cell "<<MotherCell.finding_oneself()<<" of column "<<MotherCell.MotherColumn.finding_oneself()<<" of layer "<<MotherCell.MotherColumn.MotherLayer.finding_oneself()<<std::endl;
+}

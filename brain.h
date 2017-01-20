@@ -113,6 +113,7 @@ private:
 
 public:
     segment(cell& Cell_to_belong_to);
+    segment(const segment& dummysegment);
 
     cell& MotherCell;                            //3*activeCollumns per layer
     constexpr static double MinSynapseWeightActivity=Minimal_sum_of_synapseweights_for_activity;
@@ -140,13 +141,16 @@ public:
 
     void BlindSynapseAdding(layer* level,size_t t);
 
-
+    //debugging after this mark
+    void who_am_I(void);
+    size_t finding_oneself(void);
 };
 
 class cell{
-    //write constructor!!!!
+
 public:
     cell(column& Column_to_belong_to);
+    cell(const cell& dummycell);
 
     column& MotherColumn;
     std::vector<segment> SegList;//list of segments (net of horizontal
@@ -160,6 +164,9 @@ public:
 
     void UpdateActiveSegments(void);
     segment* BestSegmentInCell(size_t t);
+    //debugging after this mark
+    void who_am_I(void);
+    size_t finding_oneself(void);
 };
 
 class column{//contains connections to input and list of cells
@@ -172,7 +179,7 @@ private:
 
 public:
     column(layer& layer_to_belong_to, size_t Number_of_Cells_per_Column);
-
+    column(const column& dummycolumn);
     constexpr static double Average_Exp= column_geometric_factor; //Take average of overlap
               //correspons to 65% of whole value was determined in the last 100 steps
     std::vector<std::pair<column*,double>> ConnectedSynapses;//list of pointers to "connected" synapses and connection strength
@@ -197,6 +204,9 @@ public:
     segment* BestMatchingSegmentInColumn(void);
 
 
+    //debugging after this mark
+    void who_am_I(void);
+    size_t finding_oneself(void);
 
 };
 
@@ -222,6 +232,7 @@ private:
 public:
 
     layer(size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column, brain& pBrain);
+    layer(const layer& dummylayer);
 
     std::vector<column*> ActColumns;//active columns; maybe turn into array of active
 
@@ -255,6 +266,9 @@ public:
     void CellUpdater(void);
     void CellLearnInitiator(void);
     void virtual Three_CellListUpdater(void);
+    //debugging after this mark
+    void who_am_I(void);
+    size_t finding_oneself(void);
 };
 
 
@@ -290,9 +304,10 @@ private:
     std::vector<layer> ListOfLevels;
     bottom_layer LowestLayer;
     top_layer    HighestLayer;
-    std::vector<layer*> AllLevels;
+
 
 public:
+    std::vector<layer*> AllLevels;
     size_t time;
     brain(size_t Number_of_Levels, size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column,std::vector<bool>(*sensoryinput)(size_t time));
     friend void BrainConstructionHelper(brain& Init_brain, size_t Number_of_Levels, size_t Number_of_Column_per_Layer,size_t Number_of_Cells_per_Column/*,std::vector<bool>(*sensoryinput)(size_t time)*/);
