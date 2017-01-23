@@ -15,20 +15,7 @@ class segment;
 
 
 /*
- * fix mother-problem
- * use emplace_back for this
- * do something else for list of layers!
  *
- * last two layers are not correctly found by AllLayers
- * Layers are not correctly found by their columns; the all columns with index below the
- * first power of two below the number of layers-2
- *
- * pick something else as std::vector that cannot change size
- * and change copying behavior
- *
-
-
-
 
 propagate confusion to higher layers
 
@@ -313,6 +300,8 @@ public:
     friend void BrainConstructionHelper(brain& Init_brain, size_t Number_of_Levels, size_t Number_of_Column_per_Layer,size_t Number_of_Cells_per_Column/*,std::vector<bool>(*sensoryinput)(size_t time)*/);
 
     void update(void);
+
+    void inventory(void);
     /*updates:
      * layer::actcolumns
      * layer::SegmentUpdateList
