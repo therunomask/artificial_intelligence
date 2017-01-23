@@ -741,6 +741,12 @@ void brain::update(){
 
 */
 
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
 
 
     for(layer*& Dummylayer:AllLevels){
