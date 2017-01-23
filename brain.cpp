@@ -279,7 +279,7 @@ void layer::ActiveColumnUpdater(void){
     //implement saved changes
 
 
-    for(size_t i=0;i<DesiredLocalActivity;++i){
+    for(size_t i=0;i<TempActColumns.size();++i){
         ActColumns[i]=TempActColumns[i];
 
     }
