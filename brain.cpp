@@ -278,11 +278,16 @@ void layer::FindBestColumns(void){
 void layer::ActiveColumnUpdater(void){
     //implement saved changes
 
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
-    for(size_t i=0;i<DesiredLocalActivity;++i){
+    for(size_t i=0;i<TempActColumns.size();++i){
         ActColumns[i]=TempActColumns[i];
 
     }
+    std::cout<<TempActColumns[0]->boosting<<" is the boosting value of the well-behaving column \n";
+    who_am_I();
+    //std::cout<<TempActColumns[1]->boosting<<" is the boosting value of the malicious column \n";
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
 }
 
