@@ -111,6 +111,7 @@ void BrainConstructionHelper(brain& Init_brain,size_t Number_of_Levels, size_t N
 brain::brain(size_t Number_of_Levels, size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column,std::vector<bool>(*sensoryinput)(size_t time))
     :NumLevels(Number_of_Levels),
       time(0),
+      Martin_Luther(debughelper()),
       ListOfLevels(std::vector<layer>()),
       LowestLayer(bottom_layer(Number_of_Column_per_Layer,Number_of_Cells_per_Column,*this,sensoryinput)),
       HighestLayer(top_layer(Number_of_Column_per_Layer,Number_of_Cells_per_Column,*this)),
@@ -290,17 +291,24 @@ void layer::ActiveColumnUpdater(void){
 void layer::ConnectedSynapsesUpdate(void){
     //strengthen connections to columns that were active
     //weaken connections to columns that were inactive
+    size_t success=0;
+    size_t failure=0;
+
     for(auto& pdummyColumn: ActColumns){
 
         for(auto& dummy_connected_synapse : pdummyColumn->ConnectedSynapses){
             if(dummy_connected_synapse.first->active==true){
                 dummy_connected_synapse.second=std::max(dummy_connected_synapse.second+CondsInc,1.0);
+                //
+                ++success;
             }else{
                 dummy_connected_synapse.second=std::min(dummy_connected_synapse.second-CondsDec,0.0);
-
+                //
+                ++failure;
             }
         }
     }
+    MotherBrain.Martin_Luther.activation_column[finding_oneself()].push_back(static_cast<double>(success)/static_cast<double>(success+failure));
 
 }
 double layer::ActivityLogUpdateFindMaxActivity(void){
@@ -892,4 +900,30 @@ size_t segment::finding_oneself(){
 }
 void segment::who_am_I(void){
     std::cout<<"I am segment "<<finding_oneself()<<" of cell "<<MotherCell.finding_oneself()<<" of column "<<MotherCell.MotherColumn.finding_oneself()<<" of layer "<<MotherCell.MotherColumn.MotherLayer.finding_oneself()<<std::endl;
+}
+
+debughelper::debughelper(void):
+    success_column(std::vector<std::vector<double>>(layers_per_brain,std::vector<double>())),
+    success_cell(std::vector<std::vector<double>>(layers_per_brain,std::vector<double>())),
+    activation_column(std::vector<std::vector<double>>(layers_per_brain,std::vector<double>())),
+    activation_cell(std::vector<std::vector<double>>(layers_per_brain,std::vector<double>())),
+    avg_synapses_per_segment(std::vector<std::vector<double>>(layers_per_brain,std::vector<double>()))
+{
+
+}
+
+void debughelper::tell(std::vector<std::vector<double> > dummyvec, std::string name){
+    std::cout<<"This is the debughelper speaking, taking the average of "<<name<<".\n";
+
+    for(size_t l=0;l<dummyvec.size();++l){
+        std::cout<<"In layer "<<l<<" the statistic is. \n";
+        for(size_t t=0;t<dummyvec[l].size()/100;++t){
+            std::cout<<" average number "<<t<<" is ";
+            double average=0;
+            for(size_t u=0;u<100;++u){
+                average+=dummyvec[l][100*t+u];
+            }
+            std::cout<<average/100<<std::endl;
+        }
+    }
 }

@@ -11,10 +11,25 @@ class column;
 class LowSyn;
 class cell;
 class segment;
-
+class debughelper;
 
 
 /*
+ *think of relevant variables that describe the workflow of our system
+ *
+ * successrate of columns ( column gets into expected state and is activated accordingly)
+ * successrate of cells
+ * rate of activation of cells/columns
+ * rate of change in the synapses; columns as well as segments
+ * rate of change of weights of synapses
+ * distribution of weights of synapses
+ * rate of blind synapse adding
+ * average number of synapses per segment
+ * time each function takes
+ *
+ *
+ *
+ *
  *
 
 propagate confusion to higher layers
@@ -182,6 +197,7 @@ public:
     double boosting;//boost value increases
                         //activity of columns which are not active enough
 
+
     double feed_input(void);//computes activation caused by input
     //connections count only as "connected" or "not connected" no further weights
 
@@ -285,6 +301,20 @@ public:
     void Three_CellListUpdater();
 };
 
+class debughelper{
+private:
+public:
+    debughelper(void);
+    std::vector<std::vector<double>> success_column;
+    std::vector<std::vector<double>> success_cell;
+    std::vector<std::vector<double>> activation_column;
+    std::vector<std::vector<double>> activation_cell;
+    std::vector<std::vector<double>> avg_synapses_per_segment;
+
+    void tell(std::vector<std::vector<double>> dummyvec, std::string name);
+};
+
+
 class brain{
 private:
     const size_t NumLevels;
@@ -296,6 +326,8 @@ private:
 public:
     std::vector<layer*> AllLevels;
     size_t time;
+    debughelper Martin_Luther;
+
     brain(size_t Number_of_Levels, size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column,std::vector<bool>(*sensoryinput)(size_t time));
     friend void BrainConstructionHelper(brain& Init_brain, size_t Number_of_Levels, size_t Number_of_Column_per_Layer,size_t Number_of_Cells_per_Column/*,std::vector<bool>(*sensoryinput)(size_t time)*/);
 
@@ -322,5 +354,7 @@ public:
      * */
 
 };
+
+
 
 #endif // BRAIN_HEADER_H
