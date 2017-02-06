@@ -15,6 +15,9 @@ class debughelper;
 
 
 /*
+ *program crashes if more than 4 columns are active in the lowest layer
+ *
+ *
  *think of relevant variables that describe the workflow of our system
  *
  * successrate of columns ( column gets into expected state and is activated accordingly)
@@ -296,8 +299,16 @@ public:
 
 
     std::vector<bool>(*external_input)(size_t time);
-    void ConnectedSynapsesUpdate(){ }//not necessary in lowest layer
-    void BoostingUpdate_StrenthenWeak(){ }//not necessary in lowest layer
+    void ConnectedSynapsesUpdate()
+    {
+        std::cout<<"lowest layer should not use ConnectedSynapsesUpdate! \n";
+        std::abort();
+    }//not necessary in lowest layer
+    void BoostingUpdate_StrenthenWeak()
+    {
+        std::cout<<"lowest layer should not use BoostingUpdate_StrenthenWeak! \n";
+        std::abort();
+    }//not necessary in lowest layer
     void Three_CellListUpdater();
 };
 
@@ -311,7 +322,7 @@ public:
     std::vector<std::vector<double>> activation_cell;
     std::vector<std::vector<double>> avg_synapses_per_segment;
 
-    void tell(std::vector<std::vector<double>> dummyvec, std::string name);
+    void tell(std::vector<std::vector<double> > *dummyvec);
 };
 
 

@@ -253,6 +253,7 @@ segment::segment(const segment &dummysegment):
 
 
 void layer::FindBestColumns(void){
+    static size_t counter=0;
     //finding #DesiredLocalActivity highest overlapping columns
 
     std::priority_queue<std::pair<double, column*>,std::vector<std::pair<double,column*>>,std::greater<std::pair<double,column*>>> winner;
@@ -272,18 +273,27 @@ void layer::FindBestColumns(void){
 
     for (size_t i = 0; i < DesiredLocalActivity; ++i) {
         TempActColumns[i]=winner.top().second;
+        winner.pop();
     }
+
 
 }
 
 void layer::ActiveColumnUpdater(void){
     //implement saved changes
 
-
+    for(column& dummycolumn:ColumnList){
+        dummycolumn.active=false;
+    }
     for(size_t i=0;i<TempActColumns.size();++i){
         ActColumns[i]=TempActColumns[i];
+        ActColumns[i]->active=true;
+
 
     }
+    //debughelper statistics
+    MotherBrain.Martin_Luther.activation_column[finding_oneself()].push_back(TempActColumns.size());
+
 
 }
 
@@ -298,17 +308,17 @@ void layer::ConnectedSynapsesUpdate(void){
 
         for(auto& dummy_connected_synapse : pdummyColumn->ConnectedSynapses){
             if(dummy_connected_synapse.first->active==true){
-                dummy_connected_synapse.second=std::max(dummy_connected_synapse.second+CondsInc,1.0);
+                dummy_connected_synapse.second=std::max(dummy_connected_synapse.second+CondsInc/(pillars_per_layer*active_pillers_per_pillar),1.0);
                 //
                 ++success;
             }else{
-                dummy_connected_synapse.second=std::min(dummy_connected_synapse.second-CondsDec,0.0);
+                dummy_connected_synapse.second=std::min(dummy_connected_synapse.second-CondsDec/(pillars_per_layer-pillars_per_layer*active_pillers_per_pillar),0.0);
                 //
                 ++failure;
             }
         }
     }
-    MotherBrain.Martin_Luther.activation_column[finding_oneself()].push_back(static_cast<double>(success)/static_cast<double>(success+failure));
+    MotherBrain.Martin_Luther.success_column[finding_oneself()].push_back(static_cast<double>(success)/static_cast<double>(success+failure));
 
 }
 double layer::ActivityLogUpdateFindMaxActivity(void){
@@ -357,6 +367,12 @@ void layer::BoostingUpdate_StrenthenWeak(double MaxActivity){
 
 void layer::SegmentUpdater(void){
 
+    //debughelper; statistics
+    static int success=0;
+    static int failure=0;
+    static bool loop=false;
+    bool outer_most=false;
+
     bool erased=false;
 
 
@@ -367,6 +383,8 @@ void layer::SegmentUpdater(void){
                 for(segment*& dummySegment: dummycell->SegmentUpdateList){
              //reward segments if cell is active and activity was predicted(EndOfSeq is true)
                     dummySegment->AdaptingSynapses(dummySegment->PositiveLearning);
+                    //debughelper; statistics
+                    ++success;
                 }
                 dummycell->SegmentUpdateList=std::vector<segment*>();
                 CellUpdateList.erase(dummycell);
@@ -379,6 +397,8 @@ void layer::SegmentUpdater(void){
             for(segment*& dummySegment: dummycell->SegmentUpdateList){
             //punish segments if cell is not active and not predicting; but was previously predicting
                 dummySegment->AdaptingSynapses(!(dummySegment->PositiveLearning));
+                //debughelper; statistics
+                ++failure;
             }
             dummycell->SegmentUpdateList=std::vector<segment*>();
             CellUpdateList.erase(dummycell);
@@ -387,10 +407,32 @@ void layer::SegmentUpdater(void){
         }
 
     }
+    //debughelper statistics
+    if(loop==false){
+        outer_most=true;
+    }
     if(erased==true){
+
+        //debughelper statistics
+        loop=true;
+
+
         this->SegmentUpdater();
     }
+    //debughelper statistics
+    if(success+failure!=0&&outer_most==true){
+        MotherBrain.Martin_Luther.success_cell[finding_oneself()].push_back(static_cast<double>(success)/static_cast<double>(success+failure));
+    } else if (outer_most==true){
+        MotherBrain.Martin_Luther.success_cell[finding_oneself()].push_back(0);
 
+    }
+    //debughelper statistics
+
+    if(outer_most==true){
+        loop=false;
+        success=0;
+        failure=0;
+    }
 }
 
 
@@ -431,6 +473,10 @@ void layer::CellExpectInitiator( void ){
 
 
 void layer::CellUpdater(void){
+    //debughelper statistics
+    MotherBrain.Martin_Luther.activation_cell[finding_oneself()].push_back(static_cast<double>(PendingActivity.size())/(cells_per_column*pillars_per_layer));
+
+
     CellActivityList=std::vector<cell*>();
 
     for(column& dummyColumn: ColumnList){
@@ -450,6 +496,7 @@ void layer::CellUpdater(void){
         CellActivityList.push_back(pdummyCell);
         pdummyCell->active[0]=true;
 
+
     }
     PendingActivity=std::vector<cell*>();
     for(cell*& pdummyCell:PendingExpectation){
@@ -461,6 +508,8 @@ void layer::CellUpdater(void){
         pdummyCell->learn[0]=true;
     }
     PendingLearning=std::vector<cell*>();
+
+
 }
 
 
@@ -493,6 +542,7 @@ void layer::CellLearnInitiator(void){
 
                 predicted=true;
                 PendingActivity.push_back(&activePillarCell);
+
                 //choose current cell to be the learning cell if it
                 //is connected to a cell with learn state on
                 for(auto& connected_cells : s->Synapse){
@@ -566,7 +616,7 @@ double column::feed_input(void){
     //computes overlap and
     //boosted overlap; also updates running averages
     int overlap=0;
-    for(auto &syn : ConnectedSynapses){
+    for(auto &syn : ConnectedSynapses){//v this silly number is 0.3
         if(syn.second>minimal_overlap_under_consideration/(pillars_per_layer*active_pillers_per_pillar)){
             overlap+=static_cast<int>( syn.first->active||syn.first->expect);
         }
@@ -751,26 +801,30 @@ void brain::update(){
 
 
 
-    for(layer*& Dummylayer:AllLevels){
+    for(layer*& DummyLayer:AllLevels){
 
-        Dummylayer->FindBestColumns();
+        DummyLayer->FindBestColumns();
 
-        double MaxActivity=Dummylayer->ActivityLogUpdateFindMaxActivity();
-        Dummylayer->BoostingUpdate_StrenthenWeak( MaxActivity);
-        Dummylayer->CellExpectInitiator();
+        double MaxActivity=DummyLayer->ActivityLogUpdateFindMaxActivity();
+        if(DummyLayer!=&LowestLayer){
+            DummyLayer->BoostingUpdate_StrenthenWeak( MaxActivity);
+        }
+        DummyLayer->CellExpectInitiator();
 
 
-        Dummylayer->CellLearnInitiator();
+        DummyLayer->CellLearnInitiator();
 
     }
 
 
-    //updates!
+    //updates!    
     for(layer*& DummyLayer:AllLevels){
 
         DummyLayer->ActiveColumnUpdater();
 
-        DummyLayer->ConnectedSynapsesUpdate();
+        if(DummyLayer!=&LowestLayer){
+            DummyLayer->ConnectedSynapsesUpdate();
+        }
 
         DummyLayer->CellUpdater();
 
@@ -853,7 +907,8 @@ size_t layer::finding_oneself(){
             return i;
         }
     }
-    throw std::invalid_argument("layer got lost finding itself \n");
+    std::cout<<"layer got lost finding itself \n";
+    std::abort();
 
 }
 void layer::who_am_I(void){
@@ -912,16 +967,35 @@ debughelper::debughelper(void):
 
 }
 
-void debughelper::tell(std::vector<std::vector<double> > dummyvec, std::string name){
+void debughelper::tell(std::vector<std::vector<double> >* dummyvec){
+    //prints the name of one of the types of statistics debughelper is taking during runtime
+    //and the averages over the data itself
+
+    std::string name;
+
+    if(dummyvec==&success_column){ name="success_column";
+    }else if(dummyvec==&success_cell){
+        name="success_cell";
+    }else if (dummyvec==&activation_column){
+        name="activation_column";
+
+    } else if(dummyvec==&activation_cell){
+        name="activation_cell";
+
+    }else if(dummyvec==&avg_synapses_per_segment){
+        name="avg_synapses_per_segment";
+
+    }
+
     std::cout<<"This is the debughelper speaking, taking the average of "<<name<<".\n";
 
-    for(size_t l=0;l<dummyvec.size();++l){
-        std::cout<<"In layer "<<l<<" the statistic is. \n";
-        for(size_t t=0;t<dummyvec[l].size()/100;++t){
-            std::cout<<" average number "<<t<<" is ";
+    for(size_t l=0;l<dummyvec->size();++l){
+        std::cout<<"In layer "<<l<<" the statistics is. \n";
+        for(size_t t=0;t<(*dummyvec)[l].size()/100;++t){
+            std::cout<<" average number at time "<<t<<" is ";
             double average=0;
             for(size_t u=0;u<100;++u){
-                average+=dummyvec[l][100*t+u];
+                average+=(*dummyvec)[l][100*t+u];
             }
             std::cout<<average/100<<std::endl;
         }

@@ -8,11 +8,11 @@
 std::vector<bool> senses(size_t time){
     std::vector<bool> output(pillars_per_layer,false);
 
-    time =1;
-    output[time%20]=true;
-    output[(time+1)%20]=true;
-    output[(time+2)%20]=true;
-    output[(time+3)%20]=true;
+    //time =1;
+    output[time%200]=true;
+    output[(time+1)%200]=true;
+    output[(time+2)%200]=true;
+    output[(time+3)%200]=true;
 
 
     return output;
@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
 {
 
     clock_t timer;
-    size_t End=1000;
+    size_t End=10000;
     std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
     brain joseph(layers_per_brain,pillars_per_layer,cells_per_column, senses);
@@ -40,6 +40,9 @@ int main(int argc, char *argv[])
     }
     timer= clock() - timer;
     std::cout<<"we achieve "<<CLOCKS_PER_SEC*End/static_cast<float>(timer)<<"step steps per second"<<std::endl;
-    joseph.Martin_Luther.tell(joseph.Martin_Luther.activation_column,"activation of columns");
+    //joseph.Martin_Luther.tell(&joseph.Martin_Luther.activation_column);
+    //joseph.Martin_Luther.tell(&joseph.Martin_Luther.success_column);
+    joseph.Martin_Luther.tell(&joseph.Martin_Luther.success_cell);
+    joseph.Martin_Luther.tell(&joseph.Martin_Luther.activation_cell);
     return 0;
 }
