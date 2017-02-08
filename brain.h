@@ -48,6 +48,8 @@ propagate confusion to higher layers
  *
  * Dopaminsystem?
  *
+ * dynamically change parameters (e.g. number of columns)
+ *
  * Is Inhibition radius a useful concept, or should one model a second inhibiting network?
  *
  *
