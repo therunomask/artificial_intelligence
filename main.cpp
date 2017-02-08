@@ -2,7 +2,7 @@
 #include <vector>
 #include <deque>
 
-#include "brain.cpp"
+#include "brain.h"
 
 
 std::vector<bool> senses(size_t time){
