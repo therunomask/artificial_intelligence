@@ -4,6 +4,7 @@
 #include<vector>
 #include<deque>
 #include<unordered_set>
+#include<iostream>
 
 class brain;
 class layer;

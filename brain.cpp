@@ -1,4 +1,5 @@
 #include "brain.h"
+#include <iostream>
 #include <vector>
 #include <deque>
 #include <queue>
