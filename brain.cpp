@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include <typeinfo>
 #include <stdexcept>
+#include <thread>
 
 
 void BrainConstructionHelper(brain& Init_brain,size_t Number_of_Levels, size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column/*,std::vector<bool>(*sensoryinput)(size_t time)*/){
@@ -39,6 +40,7 @@ void BrainConstructionHelper(brain& Init_brain,size_t Number_of_Levels, size_t N
     //we choose at random which columns to connect to and
     //how strong the connection is
 
+    //srand(282346120965);//time(NULL));
     srand(time(NULL));
     for(layer*& DummyLayer: Init_brain.AllLevels){
         if(DummyLayer->p_lower_level==NULL){
@@ -776,82 +778,52 @@ void segment::AdaptingSynapses(bool positive){
         }
     }
 }
+void UpdateInitialiser(layer* DummyLayer){
+   //prepares DummyLayer for the upcomming updates
 
-void brain::update(){
-/*updates:
- * layer::actcolumns ←
- * layer::SegmentUpdateList ←
- * layer::CellActivityList ←
- * layer::Three_CellActivityList ←
- * column::Overlap_Average ←
- * column::ConnectedSynapses ←
- * column::active ←
- * column::ActivityLog ←
- * column::boosting ←
- * cell::ActiveSegments ←
- * cell::active ←
- * cell::expect ←
- * cell::learn ←
- * segment::Synapse ←
- * segment::EndOfSeq!!
- *
- * Do all layers in parallel, i.e. do the layers one after another
- * but don't implement updates until after the last layer.
+    DummyLayer->FindBestColumns();
 
-*/
-
-
-
-    for(layer*& DummyLayer:AllLevels){
-
-        DummyLayer->FindBestColumns();
-
-        double MaxActivity=DummyLayer->ActivityLogUpdateFindMaxActivity();
-        if(DummyLayer!=&LowestLayer){
-            DummyLayer->BoostingUpdate_StrenthenWeak( MaxActivity);
-        }
-        DummyLayer->CellExpectInitiator();
-
-
-        DummyLayer->CellLearnInitiator();
-
+    double MaxActivity=DummyLayer->ActivityLogUpdateFindMaxActivity();
+    if(DummyLayer!=&DummyLayer->MotherBrain.LowestLayer){
+        DummyLayer->BoostingUpdate_StrenthenWeak( MaxActivity);
     }
+    DummyLayer->CellExpectInitiator();
 
 
-    //updates!    
-    for(layer*& DummyLayer:AllLevels){
-
-        DummyLayer->ActiveColumnUpdater();
-
-        if(DummyLayer!=&LowestLayer){
-            DummyLayer->ConnectedSynapsesUpdate();
-        }
-
-        DummyLayer->CellUpdater();
-
-        DummyLayer->SegmentUpdater();
-
-
-
-    }
-    //needs an extra loop due to interference
-    for(layer*& DummyLayer:AllLevels){
-
-        for(column& DummyColumn : DummyLayer->ColumnList){
-            for(cell& DummyCell: DummyColumn.CellList){
-
-                DummyCell.UpdateActiveSegments();
-            }
-        }
-
-        DummyLayer->Three_CellListUpdater();
-    }
-
-    //update inner clock
-    ++time;
+    DummyLayer->CellLearnInitiator();
 }
 
-//only debugging after this mark
+void ThreadUpdater(layer* DummyLayer){
+    //execute pending updates for DummyLayer
+
+    DummyLayer->ActiveColumnUpdater();
+
+    if(DummyLayer!=&DummyLayer->MotherBrain.LowestLayer){
+        DummyLayer->ConnectedSynapsesUpdate();
+    }
+
+    DummyLayer->CellUpdater();
+
+    DummyLayer->SegmentUpdater();
+
+}
+
+
+
+/* #######################################################################
+ *
+ *
+ *
+ *
+ *
+ * debug functions
+ *
+ *
+ *
+ *
+ * ########################################################################
+
+*/
 
 
 void brain::inventory(){
@@ -1002,3 +974,98 @@ void debughelper::tell(std::vector<std::vector<double> >* dummyvec){
         }
     }
 }
+
+
+//end of debugging functions
+
+
+
+
+void brain::update(){
+/*updates:
+ * layer::actcolumns ←
+ * layer::SegmentUpdateList ←
+ * layer::CellActivityList ←
+ * layer::Three_CellActivityList ←
+ * column::Overlap_Average ←
+ * column::ConnectedSynapses ←
+ * column::active ←
+ * column::ActivityLog ←
+ * column::boosting ←
+ * cell::ActiveSegments ←
+ * cell::active ←
+ * cell::expect ←
+ * cell::learn ←
+ * segment::Synapse ←
+ * segment::EndOfSeq!!
+ *
+ * Do all layers in parallel, i.e. do the layers one after another
+ * but don't implement updates until after the last layer.
+
+*/
+    {//create Threads only locally in here
+        std::vector<std::thread> Threads;
+        Threads.reserve(layers_per_brain);
+        for(layer*& DummyLayer:AllLevels){
+            Threads.emplace_back(UpdateInitialiser, DummyLayer);
+        }
+        for(size_t i=0;i<AllLevels.size();++i){
+            Threads[i].join();
+        }
+//    for(layer*& DummyLayer:AllLevels){
+//        DummyLayer->FindBestColumns();
+
+//        double MaxActivity=DummyLayer->ActivityLogUpdateFindMaxActivity();
+//        if(DummyLayer!=&DummyLayer->MotherBrain.LowestLayer){
+//            DummyLayer->BoostingUpdate_StrenthenWeak( MaxActivity);
+//        }
+//        DummyLayer->CellExpectInitiator();
+
+
+//        DummyLayer->CellLearnInitiator();
+//    }
+
+    }//end of the first generation of threads
+
+    {//begin of 2nd generation of threads
+        //updates!
+        std::vector<std::thread> Threads;
+        Threads.reserve(layers_per_brain);
+        for(layer*& DummyLayer:AllLevels){
+            Threads.emplace_back(ThreadUpdater, DummyLayer);
+        }
+        for(size_t i=0;i<AllLevels.size();++i){
+            Threads[i].join();
+        }
+//        for(layer*& DummyLayer:AllLevels){
+
+//            DummyLayer->ActiveColumnUpdater();
+
+//            if(DummyLayer!=&LowestLayer){
+//                DummyLayer->ConnectedSynapsesUpdate();
+//            }
+
+//            DummyLayer->CellUpdater();
+
+//            DummyLayer->SegmentUpdater();
+//        }
+
+    }
+    //needs an extra loop due to interference
+    for(layer*& DummyLayer:AllLevels){
+
+        for(column& DummyColumn : DummyLayer->ColumnList){
+            for(cell& DummyCell: DummyColumn.CellList){
+
+                DummyCell.UpdateActiveSegments();
+            }
+        }
+
+        DummyLayer->Three_CellListUpdater();
+    }
+
+    //update inner clock
+    ++time;
+}
+
+

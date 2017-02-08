@@ -44,6 +44,7 @@ propagate confusion to higher layers
 
 /* Theoretical Aspects to be reconsidered:
  *
+ *check multithreadding+flowchart
  *
  * EndOfSequence?
  *
@@ -85,10 +86,10 @@ propagate confusion to higher layers
 
 
 //general dimensions of the system
-#define layers_per_brain                            5
+#define layers_per_brain                            8
 #define active_pillers_per_pillar                   0.02
 #define cells_per_column                            3
-#define pillars_per_layer                           4 / active_pillers_per_pillar
+#define pillars_per_layer                           8 / active_pillers_per_pillar//4 / active_pillers_per_pillar
 #define segments_per_cell                           cells_per_column/active_pillers_per_pillar
 #define synapses_per_segment                        3*active_pillers_per_pillar*pillars_per_layer
 //end of general dimensions
@@ -275,6 +276,8 @@ public:
     void CellUpdater(void);
     void CellLearnInitiator(void);
     void virtual Three_CellListUpdater(void);
+
+
     //debugging after this mark
     void who_am_I(void);
     size_t finding_oneself(void);
@@ -333,14 +336,16 @@ class brain{
 private:
     const size_t NumLevels;
     std::vector<layer> ListOfLevels;
-    bottom_layer LowestLayer;
-    top_layer    HighestLayer;
+
 
 
 public:
+    bottom_layer LowestLayer;
+    top_layer    HighestLayer;
     std::vector<layer*> AllLevels;
     size_t time;
     debughelper Martin_Luther;
+
 
     brain(size_t Number_of_Levels, size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column,std::vector<bool>(*sensoryinput)(size_t time));
     friend void BrainConstructionHelper(brain& Init_brain, size_t Number_of_Levels, size_t Number_of_Column_per_Layer,size_t Number_of_Cells_per_Column/*,std::vector<bool>(*sensoryinput)(size_t time)*/);
@@ -369,6 +374,7 @@ public:
 
 };
 
-
+void UpdateInitialiser(layer* player);
+void ThreadUpdater(layer* DummyLayer);
 
 #endif // BRAIN_HEADER_H
