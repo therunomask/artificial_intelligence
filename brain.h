@@ -16,6 +16,10 @@ class debughelper;
 
 
 /*
+ *finish removing EndOfSeq! (SegmentUpdater)
+ * add Segment removing mechanism
+ * check if things depend on a fixed segment number
+ *
  *program crashes if more than 4 columns are active in the lowest layer
  *
  *
@@ -89,7 +93,7 @@ propagate confusion to higher layers
 #define layers_per_brain                            8
 #define active_pillers_per_pillar                   0.02
 #define cells_per_column                            3
-#define pillars_per_layer                           8 / active_pillers_per_pillar//4 / active_pillers_per_pillar
+#define pillars_per_layer                           4 / active_pillers_per_pillar
 #define segments_per_cell                           cells_per_column/active_pillers_per_pillar
 #define synapses_per_segment                        3*active_pillers_per_pillar*pillars_per_layer
 //end of general dimensions
@@ -121,14 +125,14 @@ private:
             //cells in the segment
 
 public:
-    segment(cell& Cell_to_belong_to);
+    segment(cell& Cell_to_belong_to, size_t TempActivationCountdown);
     segment(const segment& dummysegment);
 
     cell& MotherCell;                            //3*activeCollumns per layer
     constexpr static double MinSynapseWeightActivity=Minimal_sum_of_synapseweights_for_activity;
-    std::vector< std::pair <cell*,double>> Synapse;//pointer to adresses of cells in the segment
+    std::deque< std::pair <cell*,double>> Synapse;//pointer to adresses of cells in the segment
     //and connectedness values of the synapses in the segment
-    bool EndOfSeq;//true if predictions due to this segment
+    size_t ActivationCountdown;//1 if prediction's due to this segment
             //should activate the column in question in the next
             //timestep rather than predicting prediction of activation
 
@@ -148,7 +152,7 @@ public:
     //of all other cells in the segment, disconnect them if
     //connection too weak.
 
-    void BlindSynapseAdding(layer* level,size_t t);
+    void BlindSynapseAdding(size_t t);
 
     //debugging after this mark
     void who_am_I(void);
@@ -162,7 +166,7 @@ public:
     cell(const cell& dummycell);
 
     column& MotherColumn;
-    std::vector<segment> SegList;//list of segments (net of horizontal
+    std::deque<segment> SegList;//list of segments (net of horizontal
             // connections) of this cell
     std::vector<std::vector<segment*>> ActiveSegments;//list of active segments of
     //    ^ maybe not use std::vector                 // last timesteps
@@ -211,7 +215,7 @@ public:
     double tell_overlap_average(void){//return running average overlap
         return Overlap_Average;
     }
-    segment* BestMatchingSegmentInColumn(void);
+    segment* BestMatchingSegmentInColumnActivateCells(void);
 
 
     //debugging after this mark

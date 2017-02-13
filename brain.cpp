@@ -218,14 +218,14 @@ column::column(const column &dummycolumn):
 cell::cell(column& Column_to_belong_to)
     :
       MotherColumn(Column_to_belong_to),
-      SegList(std::vector<segment>()),
+      SegList(std::deque<segment>()),
       ActiveSegments( std::vector<std::vector<segment*>>(2,*(new std::vector<segment*>))),
       active(2,false),
       expect(2,false),
       learn(2,false),
       SegmentUpdateList(std::vector<segment*>())
 {
-    SegList.reserve(synapses_per_segment);
+    //SegList.reserve(synapses_per_segment);
     for(size_t index=0; index<synapses_per_segment;++index){
         SegList.emplace_back(*this);
     }
@@ -238,11 +238,11 @@ cell::cell(const cell& dummycell):
     throw std::invalid_argument("Don't copy cells! \n");
 }
 
-segment::segment(cell& Cell_to_belong_to)
+segment::segment(cell& Cell_to_belong_to, size_t TempActivationCountdown)
     :
       MotherCell(Cell_to_belong_to),
       Synapse(std::vector< std::pair <cell*,double>>() ),//still to be initialized afterward
-      EndOfSeq(false)
+      ActivationCountdown(TempActivationCountdown)
 {
 
 }
@@ -462,8 +462,8 @@ void layer::CellExpectInitiator( void ){
                     //timestep best. Do blind synapse adding for this segment,
                     //we choose this kind of learning, because the current
                     //prediction was not predicted.
-                    segment* pBestSegment=dummycell.BestSegmentInCell(1);
-                    pBestSegment->BlindSynapseAdding(this,1);//1 = last timestep
+                    dummycell.SegList.emplace_back(&dummycell,dummycell.ActiveSegments[0][0].ActivationCountdown+1);
+                    dummycell.SegList[dummycell.SegList.size()-1].BlindSynapseAdding(1);//1 = last timestep
                     dummycell.SegmentUpdateList.push_back(pBestSegment);
                 }
             }
@@ -515,73 +515,112 @@ void layer::CellUpdater(void){
 
 }
 
-
-
-
 void layer::CellLearnInitiator(void){
-    //check if a cell predicted activation of a column
-    //if so, change its synapses.
-    //if not choose cell to predict same activation in the future
-
-    for(column*& active_pillar: ActColumns){
-        bool predicted=false;//dummy variable checks of predicting cell is found
-        bool is_chosen=false;//also dummy
-
-        for(cell& activePillarCell: active_pillar->CellList){
-
-            if(activePillarCell.expect[1]==true){
-
-                segment* s=NULL;
-                //find segment of cell that signified the end of a sequence
-                for(segment*& active_segment: activePillarCell.ActiveSegments[1]){
-                    if(active_segment->EndOfSeq==true){
-                        s=active_segment;
-                        break;
-                    }
-                }//if no such segment exists; continue with next cell
-                if( s==NULL){
-                    continue;
-                }
-
-                predicted=true;
-                PendingActivity.push_back(&activePillarCell);
-
-                //choose current cell to be the learning cell if it
-                //is connected to a cell with learn state on
-                for(auto& connected_cells : s->Synapse){
-                    if(connected_cells.first->learn[1]==true){
-                        PendingLearning.push_back(&activePillarCell);
-                        is_chosen=true;
-                        break;
-                    }
-
+    //check if the activity of a column was predicted;
+    //if so, activate the responsible cell and reward
+    //the responsible segment
+    //if not, activate all the cells in the column
+    //and add a segment pointing to the active
+    //cells of last round
+    for(column*& DummyColumn:ActColumns){
+        if(DummyColumn->expect==true){
+            //this function finds the segment that fits best the
+            //activity of the last timestep with SequenceCounter==1
+            //and also leads all the expecting Cells to activation
+            segment* BestSegment=BestMatchingSegmentInColumnActivateCells();
+            BestSegment->MotherCell.SegmentUpdateList(BestSegment);
+        }
+        else{
+            //activity came unexpected, so we
+            //activate all the cells in the column.
+            //find the cell with fewest segments
+            //and add a segment to this cell, which
+            //is connected to active cells of the last round
+            size_t SegmentCounter=0;
+            size_t SegmentMinCounter=-1;//maximal value of size_t
+            cell* PoorestCell=DummyColumn->CellList[0];
+            for(cell& DummyCell:DummyColumn->CellList){
+                PendingActivity.push_back(&DummyCell);
+                SegmentCounter=DummyCell.SegList.size();
+                if(SegmentCounter<SegmentMinCounter){
+                    PoorestCell=&DummyCell;
+                    SegmentMinCounter=SegmentCounter;
                 }
             }
-        }
-
-        if(predicted==false){
-
-            for(auto& PillarCell:active_pillar->CellList){
-                PendingActivity.push_back(&PillarCell);
-            }
-        }
-
-        if(is_chosen==false){
-
-            //get best matching cell in last timestep
-            segment* pBestSegment= active_pillar->BestMatchingSegmentInColumn();
-            PendingLearning.push_back(&(pBestSegment->MotherCell));
-            pBestSegment->BlindSynapseAdding(this,1);//1= last timestep
-            pBestSegment->EndOfSeq=true;
-
-
-            pBestSegment->MotherCell.SegmentUpdateList.push_back( pBestSegment);
-            CellUpdateList.insert(& pBestSegment->MotherCell);
+            PoorestCell->SegList.emplace_back(*PoorestCell,1);
+            PoorestCell->SegList[PoorestCell->SegList.size()-1].BlindSynapseAdding(0);
 
         }
-
     }
+
+
+
 }
+
+//void layer::CellLearnInitiator(void){
+//    //check if a cell predicted activation of a column
+//    //if so, change its synapses.
+//    //if not choose cell to predict same activation in the future
+
+//    for(column*& active_pillar: ActColumns){
+//        bool predicted=false;//dummy variable checks of predicting cell is found
+//        bool is_chosen=false;//also dummy
+
+//        for(cell& activePillarCell: active_pillar->CellList){
+
+//            if(activePillarCell.expect[1]==true){
+
+//                segment* s=NULL;
+//                //find segment of cell that signified the end of a sequence
+//                for(segment*& active_segment: activePillarCell.ActiveSegments[1]){
+//                    if(active_segment->EndOfSeq==true){
+//                        s=active_segment;
+//                        break;
+//                    }
+//                }//if no such segment exists; continue with next cell
+//                if( s==NULL){
+//                    continue;
+//                }
+
+//                predicted=true;
+//                PendingActivity.push_back(&activePillarCell);
+
+//                //choose current cell to be the learning cell if it
+//                //is connected to a cell with learn state on
+//                for(auto& connected_cells : s->Synapse){
+//                    if(connected_cells.first->learn[1]==true){
+//                        PendingLearning.push_back(&activePillarCell);
+//                        is_chosen=true;
+//                        break;
+//                    }
+
+//                }
+//            }
+//        }
+
+//        if(predicted==false){
+
+//            for(auto& PillarCell:active_pillar->CellList){
+//                PendingActivity.push_back(&PillarCell);
+//            }
+//        }
+
+//        if(is_chosen==false){
+
+//            //get best matching cell in last timestep
+//            segment* pBestSegment= active_pillar->BestMatchingSegmentInColumn();
+//            PendingLearning.push_back(&(pBestSegment->MotherCell));
+//            pBestSegment->BlindSynapseAdding(this,1);//1= last timestep
+//            pBestSegment->EndOfSeq=true;
+
+
+//            pBestSegment->MotherCell.SegmentUpdateList.push_back( pBestSegment);
+//            CellUpdateList.insert(& pBestSegment->MotherCell);
+
+//        }
+
+//    }
+//}
 
 void layer::Three_CellListUpdater(void){
     Three_CellActivityList.pop_back();
@@ -631,20 +670,25 @@ double column::feed_input(void){
     return overlap*boosting;
 }
 
-segment* column::BestMatchingSegmentInColumn(void){
-    //find the best matching segment of all the cells in the column
+segment* column::BestMatchingSegmentInColumnActivateCells(void){
+    //find the best matching segment of all the cells in the column,
+    //which led the column to expect its activation (i.e. cell.expect==true)
     //return that segment
-    size_t max_count=0;
+    double max_count=0;
     segment* pbestSegment= &CellList[0].SegList[0];
     for(cell& dummy_cell: CellList){
-        size_t count=0;
-        for(segment& dummy_segment:dummy_cell.SegList){
-            for(auto& remote_cell: dummy_segment.Synapse){
-                if(remote_cell.first->active[1]==true){++count;}
-            }
-            if(count> max_count){
-                max_count=count;
-                pbestSegment=&dummy_segment;
+        if(dummy_cell.expect[0]==true){
+            MotherLayer.PendingActivity.push_back(dummy_cell);
+            for(segment& dummy_segment:dummy_cell.SegList){
+                double count=0;
+                for(auto& remote_cell: dummy_segment.Synapse){
+                    if(remote_cell.first->active[1]==true&&dummy_segment.ActivationCountdown==1)
+                    {count+=remote_cell->second;}
+                }
+                if(count> max_count){
+                    max_count=count;
+                    pbestSegment=&dummy_segment;
+                }
             }
         }
     }
@@ -653,22 +697,11 @@ segment* column::BestMatchingSegmentInColumn(void){
 }
 
 
-void segment::BlindSynapseAdding(layer* level,size_t t){
-    //add all active synapses to a segment that
-    //did not connect to a cell in learnstate
+inline void segment::BlindSynapseAdding(size_t t){
+    //add all active synapses to a segment
 
-    for(auto& remote_cell:level->Three_CellActivityList[t]){
-        bool present=false;
-        for(auto& dummysynapse: Synapse){
-            if(remote_cell==dummysynapse.first){
-                present=true;
-                break;
-            }
-
-        }
-        if(present==false){
-            AddCell( remote_cell);
-        }
+    for(auto& remote_cell:MotherCell.MotherColumn.MotherLayer->Three_CellActivityList[t]){
+        AddCell( remote_cell);
     }
 
 }
