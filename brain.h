@@ -14,7 +14,13 @@ class cell;
 class segment;
 class debughelper;
 
+//change functions:
+//  Adaptingsynapses
+//  SegmentUpdater
+//  DeleteSegment
 
+//change objects:
+//SegmentUpdateList -> saves active Cells; which Segment; timer
 /*
  *finish removing EndOfSeq! (SegmentUpdater)
  * add Segment removing mechanism
@@ -147,16 +153,25 @@ public:
         //CellCon.push_back(InitCon);
     }
 
-    void AdaptingSynapses(bool positive);//increase connectedness
-    //of winners, decrease connectedness
-    //of all other cells in the segment, disconnect them if
-    //connection too weak.
+
 
     void BlindSynapseAdding(size_t t);
 
     //debugging after this mark
     void who_am_I(void);
     size_t finding_oneself(void);
+};
+
+class SegmentUpdate{
+public:
+    segment* SegmentAddress;
+    std::vector<std::pair<cell*,double>*> active_cells;//points to adresses in segment.Synapse
+    size_t timer;
+
+    void AdaptingSynapses(bool positive);//increase connectedness
+    //of winners, decrease connectedness
+    //of all other cells in the segment, disconnect them if
+    //connection too weak.
 };
 
 class cell{
@@ -173,7 +188,7 @@ public:
     std::vector<bool> active;//saves activity of last few timesteps
     std::vector<bool> expect;//predicts input due to past experience and dendrite information
     std::vector<bool> learn;//specifies which cells learn during each time step
-    std::vector<segment*> SegmentUpdateList;
+    std::vector<SegmentUpdate> SegmentUpdateList;
 
     void UpdateActiveSegments(void);
     segment* BestSegmentInCell(size_t t);
@@ -274,7 +289,7 @@ public:
     void virtual ConnectedSynapsesUpdate(void);
     double ActivityLogUpdateFindMaxActivity(void);
     void virtual BoostingUpdate_StrenthenWeak(double MaxActivity);
-    void SegmentUpdater(void);
+    void Do_SegmentUpdate(void);
 
     void CellExpectInitiator(void);
     void CellUpdater(void);

@@ -368,75 +368,111 @@ void layer::BoostingUpdate_StrenthenWeak(double MaxActivity){
 
 }
 
-void layer::SegmentUpdater(void){
 
-    //debughelper; statistics
-    static int success=0;
-    static int failure=0;
-    static bool loop=false;
-    bool outer_most=false;
-
-    bool erased=false;
-
-
-    for(cell* dummycell:CellUpdateList){
-        if(dummycell->active[0]==true){
-
-            if(dummycell->SegmentUpdateList[dummycell->SegmentUpdateList.size()-1]->EndOfSeq==true){
-                for(segment*& dummySegment: dummycell->SegmentUpdateList){
-             //reward segments if cell is active and activity was predicted(EndOfSeq is true)
-                    dummySegment->AdaptingSynapses(dummySegment->PositiveLearning);
-                    //debughelper; statistics
-                    ++success;
-                }
-                dummycell->SegmentUpdateList=std::vector<segment*>();
-                CellUpdateList.erase(dummycell);
-                erased=true;
-                break;
+void layer::Do_SegmentUpdate(){
+    //update timers
+    //if timer drops to zero or below implement pending update
+    for(cell*& dummycellp:CellUpdateList){
+        for(SegmentUpdate& DummyUpdate: dummycellp->SegmentUpdateList){
+            if(DummyUpdate.timer>0){
+                --DummyUpdate.timer;
+            }else{
+                DummyUpdate.AdaptingSynapses(dummycellp->active);
             }
         }
-        else if(dummycell->expect[0]==false){
-
-            for(segment*& dummySegment: dummycell->SegmentUpdateList){
-            //punish segments if cell is not active and not predicting; but was previously predicting
-                dummySegment->AdaptingSynapses(!(dummySegment->PositiveLearning));
-                //debughelper; statistics
-                ++failure;
-            }
-            dummycell->SegmentUpdateList=std::vector<segment*>();
-            CellUpdateList.erase(dummycell);
-            erased=true;
-            break;
-        }
-
-    }
-    //debughelper statistics
-    if(loop==false){
-        outer_most=true;
-    }
-    if(erased==true){
-
-        //debughelper statistics
-        loop=true;
-
-
-        this->SegmentUpdater();
-    }
-    //debughelper statistics
-    if(success+failure!=0&&outer_most==true){
-        MotherBrain.Martin_Luther.success_cell[finding_oneself()].push_back(static_cast<double>(success)/static_cast<double>(success+failure));
-    } else if (outer_most==true){
-        MotherBrain.Martin_Luther.success_cell[finding_oneself()].push_back(0);
-
-    }
-    //debughelper statistics
-
-    if(outer_most==true){
-        loop=false;
-        success=0;
-        failure=0;
     }
 }
+void SegmentUpdate::AdaptingSynapses(bool success){
+    //depending on success either we punish all the connections to (previously) active cells
+    //or strengthen them.
+    //if connection strength drops to zero or below we remove the corresponding synapse from the
+    //segment.
+    for(std::pair<cell*,double>*& dummySynapse: active_cells){
+        if(success==true){
+            dummySynapse->second= std::max(1,dummySynapse->second+SegmentAddress->LearnIncrement);
+        }else{
+            dummySynapse->second= dummySynapse->second- SegmentAddress->LearnIncrement;
+            if(dummySynapse->second<=0){
+                for(size_t remoteSynapse=0;remoteSynapse<SegmentAddress->Synapse.size();++remoteSynapse ){
+                    if(dummySynapse->first==SegmentAddress->Synapse[remoteSynapse].first){
+                        SegmentAddress->Synapse.erase(SegmentAddress->Synapse.begin()+remoteSynapse);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
+//void layer::SegmentUpdater(void){
+
+//    //debughelper; statistics
+//    static int success=0;
+//    static int failure=0;
+//    static bool loop=false;
+//    bool outer_most=false;
+
+//    bool erased=false;
+
+
+//    for(cell* dummycell:CellUpdateList){
+//        if(dummycell->active[0]==true){
+
+//            if(dummycell->SegmentUpdateList[dummycell->SegmentUpdateList.size()-1]->EndOfSeq==true){
+//                for(segment*& dummySegment: dummycell->SegmentUpdateList){
+//             //reward segments if cell is active and activity was predicted(EndOfSeq is true)
+//                    dummySegment->AdaptingSynapses(dummySegment->PositiveLearning);
+//                    //debughelper; statistics
+//                    ++success;
+//                }
+//                dummycell->SegmentUpdateList=std::vector<segment*>();
+//                CellUpdateList.erase(dummycell);
+//                erased=true;
+//                break;
+//            }
+//        }
+//        else if(dummycell->expect[0]==false){
+
+//            for(segment*& dummySegment: dummycell->SegmentUpdateList){
+//            //punish segments if cell is not active and not predicting; but was previously predicting
+//                dummySegment->AdaptingSynapses(!(dummySegment->PositiveLearning));
+//                //debughelper; statistics
+//                ++failure;
+//            }
+//            dummycell->SegmentUpdateList=std::vector<segment*>();
+//            CellUpdateList.erase(dummycell);
+//            erased=true;
+//            break;
+//        }
+
+//    }
+//    //debughelper statistics
+//    if(loop==false){
+//        outer_most=true;
+//    }
+//    if(erased==true){
+
+//        //debughelper statistics
+//        loop=true;
+
+
+//        this->SegmentUpdater();
+//    }
+//    //debughelper statistics
+//    if(success+failure!=0&&outer_most==true){
+//        MotherBrain.Martin_Luther.success_cell[finding_oneself()].push_back(static_cast<double>(success)/static_cast<double>(success+failure));
+//    } else if (outer_most==true){
+//        MotherBrain.Martin_Luther.success_cell[finding_oneself()].push_back(0);
+
+//    }
+//    //debughelper statistics
+
+//    if(outer_most==true){
+//        loop=false;
+//        success=0;
+//        failure=0;
+//    }
+//}
 
 
 
@@ -764,53 +800,56 @@ segment* cell::BestSegmentInCell(size_t t){
 }
 
 
-void segment::AdaptingSynapses(bool positive){
 
-    //for positive learning reinforce all connections to active cells
-    //punish all connections to inactive cells
-    if(positive==true){
-        //no for loop, because we delete synapses that drop below 0 connectedness
-        auto dummySynapse=Synapse.begin();
-        while( dummySynapse!=Synapse.end()){
-            if(dummySynapse->first->active[0]==true){
-                //if remote cell is active-> positive learning is apropriate
-                dummySynapse->second=std::min(1.0,dummySynapse->second+LearnIncrement);
-                ++dummySynapse;
-            }
-            else{
-                //if remote cell is inactive, the synapse was useless, negative learning is apropriate
-                dummySynapse->second=dummySynapse->second-LearnIncrement;
-                if(dummySynapse->second<=0){
-                    Synapse.erase(dummySynapse);
-                }
-                else{
-                    ++dummySynapse;
-                }
-            }
-        }
-    }
-    //for negative learning punish all connections to active cells,
-    //since they predicted mistakenly
-    else{
-        auto dummySynapse=Synapse.begin();
-        while( dummySynapse!=Synapse.end()){
-            if(dummySynapse->first->active[0]==true){
-                //if remote cell is active-> decrement connectedness
-                dummySynapse->second=dummySynapse->second-LearnIncrement;
-                if(dummySynapse->second<=0){
-                    Synapse.erase(dummySynapse);
-                }
-                else{
-                    ++dummySynapse;
-                }
-            }
-            else{
-                ++dummySynapse;
-            }
+//void segment::AdaptingSynapses(bool positive){
 
-        }
-    }
-}
+//    //for positive learning reinforce all connections to active cells
+//    //punish all connections to inactive cells
+//    if(positive==true){
+//        //no for loop, because we delete synapses that drop below 0 connectedness
+//        auto dummySynapse=Synapse.begin();
+//        while( dummySynapse!=Synapse.end()){
+//            if(dummySynapse->first->active[0]==true){
+//                //if remote cell is active-> positive learning is apropriate
+//                dummySynapse->second=std::min(1.0,dummySynapse->second+LearnIncrement);
+//                ++dummySynapse;
+//            }
+//            else{
+//                //if remote cell is inactive, the synapse was useless, negative learning is apropriate
+//                dummySynapse->second=dummySynapse->second-LearnIncrement;
+//                if(dummySynapse->second<=0){
+//                    Synapse.erase(dummySynapse);
+//                }
+//                else{
+//                    ++dummySynapse;
+//                }
+//            }
+//        }
+//    }
+//    //for negative learning punish all connections to active cells,
+//    //since they predicted mistakenly
+//    else{
+//        auto dummySynapse=Synapse.begin();
+//        while( dummySynapse!=Synapse.end()){
+//            if(dummySynapse->first->active[0]==true){
+//                //if remote cell is active-> decrement connectedness
+//                dummySynapse->second=dummySynapse->second-LearnIncrement;
+//                if(dummySynapse->second<=0){
+//                    Synapse.erase(dummySynapse);
+//                }
+//                else{
+//                    ++dummySynapse;
+//                }
+//            }
+//            else{
+//                ++dummySynapse;
+//            }
+
+//        }
+//    }
+//}
+
+
 void UpdateInitialiser(layer* DummyLayer){
    //prepares DummyLayer for the upcomming updates
 
