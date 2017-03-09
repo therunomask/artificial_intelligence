@@ -15,9 +15,10 @@ class segment;
 class debughelper;
 
 //change functions:
-//  Adaptingsynapses
-//  SegmentUpdater
+//
 //  DeleteSegment
+//introduce weak blindsynapse adding to segments with too few synapses when strengthening synapses
+
 
 //change objects:
 //SegmentUpdateList -> saves active Cells; which Segment; timer
@@ -156,6 +157,8 @@ public:
 
 
     void BlindSynapseAdding(size_t t);
+    std::vector<std::pair<cell*,double>*> GetActiveCells();
+
 
     //debugging after this mark
     void who_am_I(void);
@@ -164,6 +167,7 @@ public:
 
 class SegmentUpdate{
 public:
+    SegmentUpdate(segment* SegmentAddress,std::vector<std::pair<cell*,double>*> active_cells );
     segment* SegmentAddress;
     std::vector<std::pair<cell*,double>*> active_cells;//points to adresses in segment.Synapse
     size_t timer;
@@ -279,7 +283,7 @@ public:
     std::vector<std::vector<cell*>> Three_CellActivityList;//update parallel
                                                             //outer vector for timesteps
 
-    std::unordered_set<cell*> CellUpdateList;
+    std::vector<cell*> CellUpdateList;
     std::vector<cell*> PendingActivity;
     std::vector<cell*> PendingExpectation;
     std::vector<cell*> PendingLearning;
