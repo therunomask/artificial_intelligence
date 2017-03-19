@@ -5,6 +5,7 @@
 #include<deque>
 #include<unordered_set>
 #include<iostream>
+#include <mutex>
 
 class brain;
 class layer;
@@ -14,17 +15,18 @@ class cell;
 class segment;
 class debughelper;
 
-//change functions:
-//
-//  DeleteSegment
-//introduce weak blindsynapse adding to segments with too few synapses when strengthening synapses
+
 
 
 //change objects:
 //SegmentUpdateList -> saves active Cells; which Segment; timer
 /*
- *finish removing EndOfSeq! (SegmentUpdater)
+ * change boosting, perfect matching should be stable
+ *
+ *
+ *
  * add Segment removing mechanism
+ *
  * check if things depend on a fixed segment number
  *
  *program crashes if more than 4 columns are active in the lowest layer
@@ -121,6 +123,7 @@ propagate confusion to higher layers
 #define Learning_Decrement_spatial                  0.01
 #define Average_Overlap_lower_boundary              0.01
 #define Homogenous_Overlap_Increment                0.1
+#define Forgetfulness                               0.01
 
 //magic boosting function
 #define maximum_boosting                            3.0
@@ -128,15 +131,16 @@ propagate confusion to higher layers
 
 class segment{
 private:
-    constexpr static double InitCon=initial_connectedness;
+    static constexpr double InitCon=initial_connectedness;
             //cells in the segment
 
 public:
     segment(cell& Cell_to_belong_to, size_t TempActivationCountdown);
     segment(const segment& dummysegment);
+    segment operator=(const segment& dummysegment);
 
     cell& MotherCell;                            //3*activeCollumns per layer
-    constexpr static double MinSynapseWeightActivity=Minimal_sum_of_synapseweights_for_activity;
+    static constexpr double MinSynapseWeightActivity=Minimal_sum_of_synapseweights_for_activity;
     std::deque< std::pair <cell*,double>> Synapse;//pointer to adresses of cells in the segment
     //and connectedness values of the synapses in the segment
     size_t ActivationCountdown;//1 if prediction's due to this segment
@@ -191,7 +195,6 @@ public:
     //    ^ maybe not use std::vector                 // last timesteps
     std::vector<bool> active;//saves activity of last few timesteps
     std::vector<bool> expect;//predicts input due to past experience and dendrite information
-    std::vector<bool> learn;//specifies which cells learn during each time step
     std::vector<SegmentUpdate> SegmentUpdateList;
 
     void UpdateActiveSegments(void);
@@ -286,7 +289,6 @@ public:
     std::vector<cell*> CellUpdateList;
     std::vector<cell*> PendingActivity;
     std::vector<cell*> PendingExpectation;
-    std::vector<cell*> PendingLearning;
 
     void virtual FindBestColumns(void);
     void ActiveColumnUpdater(void);
@@ -299,11 +301,12 @@ public:
     void CellUpdater(void);
     void CellLearnInitiator(void);
     void virtual Three_CellListUpdater(void);
-
+    void forgetting(void);
 
     //debugging after this mark
     void who_am_I(void);
     size_t finding_oneself(void);
+
 };
 
 
@@ -368,6 +371,9 @@ public:
     std::vector<layer*> AllLevels;
     size_t time;
     debughelper Martin_Luther;
+    size_t max_activation_counter;
+    bool max_activation_counter_change;
+    std::mutex max_activation_counter_mutex;
 
 
     brain(size_t Number_of_Levels, size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column,std::vector<bool>(*sensoryinput)(size_t time));

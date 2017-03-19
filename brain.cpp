@@ -113,12 +113,15 @@ void BrainConstructionHelper(brain& Init_brain,size_t Number_of_Levels, size_t N
 
 brain::brain(size_t Number_of_Levels, size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column,std::vector<bool>(*sensoryinput)(size_t time))
     :NumLevels(Number_of_Levels),
-      time(0),
-      Martin_Luther(debughelper()),
       ListOfLevels(std::vector<layer>()),
       LowestLayer(bottom_layer(Number_of_Column_per_Layer,Number_of_Cells_per_Column,*this,sensoryinput)),
       HighestLayer(top_layer(Number_of_Column_per_Layer,Number_of_Cells_per_Column,*this)),
-      AllLevels(std::vector<layer*>())
+      AllLevels(std::vector<layer*>()),
+      time(0),
+      Martin_Luther(debughelper()),
+      max_activation_counter(5),
+      max_activation_counter_change(false),
+      max_activation_counter_mutex()
 {
     ListOfLevels.reserve(Number_of_Levels);
     for(size_t i=0;i<Number_of_Levels-2;++i){
@@ -149,8 +152,7 @@ layer::layer(size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Colum
       Three_CellActivityList(std::vector<std::vector<cell*>>(2,std::vector<cell*>())),
       CellUpdateList(std::vector<cell*>()),
       PendingActivity(std::vector<cell*>()),
-      PendingExpectation(std::vector<cell*>()),
-      PendingLearning(std::vector<cell*>())
+      PendingExpectation(std::vector<cell*>())
 {
     ColumnList.reserve(Number_of_Column_per_Layer);
     for(size_t index=0;index<Number_of_Column_per_Layer;++index){
@@ -222,7 +224,6 @@ cell::cell(column& Column_to_belong_to)
       ActiveSegments( std::vector<std::vector<segment*>>(2,*(new std::vector<segment*>))),
       active(2,false),
       expect(2,false),
-      learn(2,false),
       SegmentUpdateList(std::vector<SegmentUpdate>())
 {
     //SegList.reserve(synapses_per_segment);
@@ -255,10 +256,15 @@ segment::segment(cell& Cell_to_belong_to, size_t TempActivationCountdown)
 
 }
 segment::segment(const segment &dummysegment):
-    MotherCell(dummysegment.MotherCell)
+    MotherCell(dummysegment.MotherCell),
+    ActivationCountdown(dummysegment.ActivationCountdown)
 {
     throw std::invalid_argument("Don't copy segments! \n");
 
+}
+
+segment segment::operator =(const segment& dummysegment){
+    throw std::invalid_argument("Don't operator= segments! \n");
 }
 
 std::vector<std::pair<cell*,double>*>  segment::GetActiveCells(){
@@ -417,6 +423,9 @@ void SegmentUpdate::AdaptingSynapses(bool success){
     for(std::pair<cell*,double>*& dummySynapse: active_cells){
         if(success==true){
             dummySynapse->second= std::max(static_cast<double>(1),dummySynapse->second+SegmentAddress->LearnIncrement);
+            if(SegmentAddress->Synapse.size()<synapses_per_segment){
+                SegmentAddress->BlindSynapseAdding(SegmentAddress->ActivationCountdown);
+            }
         }else{
             dummySynapse->second= dummySynapse->second- SegmentAddress->LearnIncrement;
             if(dummySynapse->second<=0){
@@ -431,75 +440,6 @@ void SegmentUpdate::AdaptingSynapses(bool success){
     }
 }
 
-//void layer::SegmentUpdater(void){
-
-//    //debughelper; statistics
-//    static int success=0;
-//    static int failure=0;
-//    static bool loop=false;
-//    bool outer_most=false;
-
-//    bool erased=false;
-
-
-//    for(cell* dummycell:CellUpdateList){
-//        if(dummycell->active[0]==true){
-
-//            if(dummycell->SegmentUpdateList[dummycell->SegmentUpdateList.size()-1]->EndOfSeq==true){
-//                for(segment*& dummySegment: dummycell->SegmentUpdateList){
-//             //reward segments if cell is active and activity was predicted(EndOfSeq is true)
-//                    dummySegment->AdaptingSynapses(dummySegment->PositiveLearning);
-//                    //debughelper; statistics
-//                    ++success;
-//                }
-//                dummycell->SegmentUpdateList=std::vector<segment*>();
-//                CellUpdateList.erase(dummycell);
-//                erased=true;
-//                break;
-//            }
-//        }
-//        else if(dummycell->expect[0]==false){
-
-//            for(segment*& dummySegment: dummycell->SegmentUpdateList){
-//            //punish segments if cell is not active and not predicting; but was previously predicting
-//                dummySegment->AdaptingSynapses(!(dummySegment->PositiveLearning));
-//                //debughelper; statistics
-//                ++failure;
-//            }
-//            dummycell->SegmentUpdateList=std::vector<segment*>();
-//            CellUpdateList.erase(dummycell);
-//            erased=true;
-//            break;
-//        }
-
-//    }
-//    //debughelper statistics
-//    if(loop==false){
-//        outer_most=true;
-//    }
-//    if(erased==true){
-
-//        //debughelper statistics
-//        loop=true;
-
-
-//        this->SegmentUpdater();
-//    }
-//    //debughelper statistics
-//    if(success+failure!=0&&outer_most==true){
-//        MotherBrain.Martin_Luther.success_cell[finding_oneself()].push_back(static_cast<double>(success)/static_cast<double>(success+failure));
-//    } else if (outer_most==true){
-//        MotherBrain.Martin_Luther.success_cell[finding_oneself()].push_back(0);
-
-//    }
-//    //debughelper statistics
-
-//    if(outer_most==true){
-//        loop=false;
-//        success=0;
-//        failure=0;
-//    }
-//}
 
 
 
@@ -526,6 +466,9 @@ void layer::CellExpectInitiator( void ){
                     //timestep. Do blind synapse adding for this segment,
                     //we choose this kind of learning, because the current
                     //prediction was not predicted.
+                    if(MotherBrain.max_activation_counter==dummycell.ActiveSegments[0][0]->ActivationCountdown){
+                        MotherBrain.max_activation_counter_change=true;
+                    }
                     dummycell.SegList.emplace_back(dummycell,dummycell.ActiveSegments[0][0]->ActivationCountdown+1);
                     dummycell.SegList[dummycell.SegList.size()-1].BlindSynapseAdding(1);//1 = last timestep
                     dummycell.SegmentUpdateList.emplace_back(&dummycell.SegList[dummycell.SegList.size()-1],tempactive_cells);
@@ -551,12 +494,16 @@ void layer::CellUpdater(void){
         dummyColumn.expect=false;
         for(cell& dummyCell: dummyColumn.CellList){
         //shift time by one step
-            dummyCell.active[1]=dummyCell.active[0];
+            if(dummyCell.active.size()<MotherBrain.max_activation_counter){
+                dummyCell.active.push_back(false);
+                dummyCell.expect.push_back(false);
+            }
+            for(size_t index=dummyCell.active.size()-1;index>0;--index){
+                dummyCell.active[index]=dummyCell.active[index-1];
+                dummyCell.expect[index]=dummyCell.expect[index-1];
+            }
             dummyCell.active[0]=false;
-            dummyCell.expect[1]=dummyCell.expect[0];
             dummyCell.expect[0]=false;
-            dummyCell.learn[1]=dummyCell.learn[0];
-            dummyCell.learn[0]=false;
         }
     }
   //set those cells to active,expect,learn that were identified to do so previously
@@ -572,10 +519,7 @@ void layer::CellUpdater(void){
         pdummyCell->MotherColumn.expect=true;
     }
     PendingExpectation=std::vector<cell*>();
-    for(cell*& pdummyCell:PendingLearning){
-        pdummyCell->learn[0]=true;
-    }
-    PendingLearning=std::vector<cell*>();
+
 
 
 }
@@ -622,81 +566,53 @@ void layer::CellLearnInitiator(void){
 
 }
 
-//void layer::CellLearnInitiator(void){
-//    //check if a cell predicted activation of a column
-//    //if so, change its synapses.
-//    //if not choose cell to predict same activation in the future
-
-//    for(column*& active_pillar: ActColumns){
-//        bool predicted=false;//dummy variable checks of predicting cell is found
-//        bool is_chosen=false;//also dummy
-
-//        for(cell& activePillarCell: active_pillar->CellList){
-
-//            if(activePillarCell.expect[1]==true){
-
-//                segment* s=NULL;
-//                //find segment of cell that signified the end of a sequence
-//                for(segment*& active_segment: activePillarCell.ActiveSegments[1]){
-//                    if(active_segment->EndOfSeq==true){
-//                        s=active_segment;
-//                        break;
-//                    }
-//                }//if no such segment exists; continue with next cell
-//                if( s==NULL){
-//                    continue;
-//                }
-
-//                predicted=true;
-//                PendingActivity.push_back(&activePillarCell);
-
-//                //choose current cell to be the learning cell if it
-//                //is connected to a cell with learn state on
-//                for(auto& connected_cells : s->Synapse){
-//                    if(connected_cells.first->learn[1]==true){
-//                        PendingLearning.push_back(&activePillarCell);
-//                        is_chosen=true;
-//                        break;
-//                    }
-
-//                }
-//            }
-//        }
-
-//        if(predicted==false){
-
-//            for(auto& PillarCell:active_pillar->CellList){
-//                PendingActivity.push_back(&PillarCell);
-//            }
-//        }
-
-//        if(is_chosen==false){
-
-//            //get best matching cell in last timestep
-//            segment* pBestSegment= active_pillar->BestMatchingSegmentInColumn();
-//            PendingLearning.push_back(&(pBestSegment->MotherCell));
-//            pBestSegment->BlindSynapseAdding(this,1);//1= last timestep
-//            pBestSegment->EndOfSeq=true;
-
-
-//            pBestSegment->MotherCell.SegmentUpdateList.push_back( pBestSegment);
-//            CellUpdateList.insert(& pBestSegment->MotherCell);
-
-//        }
-
-//    }
-//}
 
 void layer::Three_CellListUpdater(void){
-    Three_CellActivityList.pop_back();
+    if(Three_CellActivityList.size()<MotherBrain.max_activation_counter){
+        Three_CellActivityList.pop_back();
+    }
     Three_CellActivityList.insert(Three_CellActivityList.begin(),CellActivityList);
     Three_CellActivityList[0].insert(Three_CellActivityList[0].begin(),p_lower_level->CellActivityList.begin(),p_lower_level->CellActivityList.end());
     Three_CellActivityList[0].insert(Three_CellActivityList[0].begin(),p_upper_level->CellActivityList.begin(),p_upper_level->CellActivityList.end());
 }
 void top_layer::Three_CellListUpdater(void){
-    Three_CellActivityList.pop_back();
+    if(Three_CellActivityList.size()<MotherBrain.max_activation_counter){
+        Three_CellActivityList.pop_back();
+    }
     Three_CellActivityList.insert(Three_CellActivityList.begin(),CellActivityList);
     Three_CellActivityList[0].insert(Three_CellActivityList[0].begin(),p_lower_level->CellActivityList.begin(),p_lower_level->CellActivityList.end());
+}
+
+void layer::forgetting(){
+    //we forget by lowering the strength of all synapses uniformly in each round
+    //synapses that are not rewarded often enough will be deleted.
+    //segments that still predict sometimes will be reimbursed with blindsynapseadding.
+
+    //segments that hardly ever predict correctly will drop below synapses_per_segment/2
+    //synapses and deleted completely
+    for(column& DummyColumn: ColumnList){
+        for(cell& DummyCell: DummyColumn.CellList){
+            for(size_t DummySegmentIndex=0;DummySegmentIndex<DummyCell.SegList.size();){
+                for(size_t SynIndex=0;SynIndex<DummyCell.SegList[DummySegmentIndex].Synapse.size();){
+                    DummyCell.SegList[DummySegmentIndex].Synapse[SynIndex].second-=Forgetfulness;
+                    if(DummyCell.SegList[DummySegmentIndex].Synapse[SynIndex].second<=0){
+                        DummyCell.SegList[DummySegmentIndex].Synapse.erase(DummyCell.SegList[DummySegmentIndex].Synapse.begin()+SynIndex);
+                    }else{
+                        ++SynIndex;
+                    }
+                }// #####################################################
+                if(DummyCell.SegList[DummySegmentIndex].Synapse.size()<synapses_per_segment/2 ){
+                    std::vector<segment> dummydeque;
+                    dummydeque.emplace_back(DummyCell,3);
+                    dummydeque.erase(dummydeque.begin());
+                    DummyCell.SegList.begin();
+                    //DummyCell.SegList.erase(DummyCell.SegList.begin()+DummySegmentIndex);
+                }else{
+                    ++DummySegmentIndex;
+                }
+            }
+        }
+    }
 }
 
 
@@ -714,7 +630,9 @@ void bottom_layer:: FindBestColumns(){
 }
 
 void bottom_layer::Three_CellListUpdater(){
-    Three_CellActivityList.pop_back();
+    if(Three_CellActivityList.size()<MotherBrain.max_activation_counter){
+        Three_CellActivityList.pop_back();
+    }
     Three_CellActivityList.insert(Three_CellActivityList.begin(),CellActivityList);
     Three_CellActivityList[0].insert(Three_CellActivityList[0].begin(),p_upper_level->CellActivityList.begin(),p_upper_level->CellActivityList.end());
 }
@@ -766,7 +684,16 @@ inline void segment::BlindSynapseAdding(size_t t){
     //add all active synapses to a segment
 
     for(auto& remote_cell:MotherCell.MotherColumn.MotherLayer.Three_CellActivityList[t]){
-        AddCell( remote_cell);
+        bool alreadythere=false;
+        for(auto dummySynapse: Synapse){
+            if(dummySynapse.first==remote_cell){
+                alreadythere=true;
+                break;
+            }
+        }
+        if(!alreadythere){
+            AddCell( remote_cell);
+        }
     }
 
 }
@@ -776,8 +703,9 @@ void cell::UpdateActiveSegments(void){
     //determine which segments are active by weighted sum of active cells
     //to wich the segments point
 
-
-    ActiveSegments.pop_back();
+    if(MotherColumn.MotherLayer.MotherBrain.max_activation_counter<ActiveSegments.size()){
+        ActiveSegments.pop_back();
+    }
 
     std::vector<segment*> tempSegments;
     size_t max=0;
@@ -829,54 +757,6 @@ segment* cell::BestSegmentInCell(size_t t){
 }
 
 
-
-//void segment::AdaptingSynapses(bool positive){
-
-//    //for positive learning reinforce all connections to active cells
-//    //punish all connections to inactive cells
-//    if(positive==true){
-//        //no for loop, because we delete synapses that drop below 0 connectedness
-//        auto dummySynapse=Synapse.begin();
-//        while( dummySynapse!=Synapse.end()){
-//            if(dummySynapse->first->active[0]==true){
-//                //if remote cell is active-> positive learning is apropriate
-//                dummySynapse->second=std::min(1.0,dummySynapse->second+LearnIncrement);
-//                ++dummySynapse;
-//            }
-//            else{
-//                //if remote cell is inactive, the synapse was useless, negative learning is apropriate
-//                dummySynapse->second=dummySynapse->second-LearnIncrement;
-//                if(dummySynapse->second<=0){
-//                    Synapse.erase(dummySynapse);
-//                }
-//                else{
-//                    ++dummySynapse;
-//                }
-//            }
-//        }
-//    }
-//    //for negative learning punish all connections to active cells,
-//    //since they predicted mistakenly
-//    else{
-//        auto dummySynapse=Synapse.begin();
-//        while( dummySynapse!=Synapse.end()){
-//            if(dummySynapse->first->active[0]==true){
-//                //if remote cell is active-> decrement connectedness
-//                dummySynapse->second=dummySynapse->second-LearnIncrement;
-//                if(dummySynapse->second<=0){
-//                    Synapse.erase(dummySynapse);
-//                }
-//                else{
-//                    ++dummySynapse;
-//                }
-//            }
-//            else{
-//                ++dummySynapse;
-//            }
-
-//        }
-//    }
-//}
 
 
 void UpdateInitialiser(layer* DummyLayer){
@@ -1103,7 +983,7 @@ void brain::update(){
  * Do all layers in parallel, i.e. do the layers one after another
  * but don't implement updates until after the last layer.
 
-*/
+*/    
     {//create Threads only locally in here
         std::vector<std::thread> Threads;
         Threads.reserve(layers_per_brain);
@@ -1113,20 +993,15 @@ void brain::update(){
         for(size_t i=0;i<AllLevels.size();++i){
             Threads[i].join();
         }
-//    for(layer*& DummyLayer:AllLevels){
-//        DummyLayer->FindBestColumns();
 
-//        double MaxActivity=DummyLayer->ActivityLogUpdateFindMaxActivity();
-//        if(DummyLayer!=&DummyLayer->MotherBrain.LowestLayer){
-//            DummyLayer->BoostingUpdate_StrenthenWeak( MaxActivity);
-//        }
-//        DummyLayer->CellExpectInitiator();
-
-
-//        DummyLayer->CellLearnInitiator();
-//    }
 
     }//end of the first generation of threads
+
+
+    if(max_activation_counter_change==true){
+        ++max_activation_counter;
+        max_activation_counter_change=false;
+    }
 
     {//begin of 2nd generation of threads
         //updates!
