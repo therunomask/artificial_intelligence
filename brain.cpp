@@ -420,6 +420,8 @@ void SegmentUpdate::AdaptingSynapses(bool success){
     //or strengthen them.
     //if connection strength drops to zero or below we remove the corresponding synapse from the
     //segment.
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
     for(std::pair<cell*,double>*& dummySynapse: active_cells){
         if(success==true){
             dummySynapse->second= std::max(static_cast<double>(1),dummySynapse->second+SegmentAddress->LearnIncrement);
@@ -438,6 +440,8 @@ void SegmentUpdate::AdaptingSynapses(bool success){
             }
         }
     }
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
 }
 
 
@@ -995,15 +999,21 @@ void brain::update(){
 
 */    
     {//create Threads only locally in here
-        std::vector<std::thread> Threads;
-        Threads.reserve(layers_per_brain);
-        for(layer*& DummyLayer:AllLevels){
-            Threads.emplace_back(UpdateInitialiser, DummyLayer);
-        }
-        for(size_t i=0;i<AllLevels.size();++i){
-            Threads[i].join();
-        }
+        if(multithreadding==true){
+            std::vector<std::thread> Threads;
 
+            Threads.reserve(layers_per_brain);
+            for(layer*& DummyLayer:AllLevels){
+                Threads.emplace_back(UpdateInitialiser, DummyLayer);
+            }
+            for(size_t i=0;i<AllLevels.size();++i){
+                Threads[i].join();
+            }
+        }else{
+            for(layer*& DummyLayer:AllLevels){
+                UpdateInitialiser(DummyLayer);
+            }
+        }
 
     }//end of the first generation of threads
     std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
@@ -1016,26 +1026,21 @@ void brain::update(){
 
     {//begin of 2nd generation of threads
         //updates!
-        std::vector<std::thread> Threads;
-        Threads.reserve(layers_per_brain);
-        for(layer*& DummyLayer:AllLevels){
-            Threads.emplace_back(ThreadUpdater, DummyLayer);
-        }
-        for(size_t i=0;i<AllLevels.size();++i){
-            Threads[i].join();
-        }
-//        for(layer*& DummyLayer:AllLevels){
+         if(multithreadding==true){
+            std::vector<std::thread> Threads;
+            Threads.reserve(layers_per_brain);
+            for(layer*& DummyLayer:AllLevels){
+                Threads.emplace_back(ThreadUpdater, DummyLayer);
+            }
+            for(size_t i=0;i<AllLevels.size();++i){
+                Threads[i].join();
+            }
+         }else{
+             for(layer*& DummyLayer:AllLevels){
+                ThreadUpdater(DummyLayer);
+             }
+         }
 
-//            DummyLayer->ActiveColumnUpdater();
-
-//            if(DummyLayer!=&LowestLayer){
-//                DummyLayer->ConnectedSynapsesUpdate();
-//            }
-
-//            DummyLayer->CellUpdater();
-
-//            DummyLayer->SegmentUpdater();
-//        }
 
     }
     std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;

@@ -22,6 +22,10 @@ class debughelper;
 //SegmentUpdateList -> saves active Cells; which Segment; timer
 /*
  *
+ * fix first:       problems occur when updating segments, because there may be pointer to synapses
+ *                      , that don't exist anymore and also because there may be pointer to segments
+ *                      , which don't exist anymore. Probably there still lurk other problems around.
+ *
  *fix layer::forgetting() ->uses segment::operator= , which we don't want and made thrownig errorr
  *
  *
@@ -379,6 +383,7 @@ public:
     size_t max_activation_counter;
     bool max_activation_counter_change;
     std::mutex max_activation_counter_mutex;
+    bool multithreadding=false;
 
 
     brain(size_t Number_of_Levels, size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column,std::vector<bool>(*sensoryinput)(size_t time));
