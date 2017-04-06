@@ -33,10 +33,10 @@ int main(int argc, char *argv[])
 
     timer=clock();
     for(size_t t=0;t<End;++t){
-        //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+        std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
         joseph.update();
-        //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
-        //std::cout<<"it is now "<<joseph.time<<" o'clock"<<std::endl;
+        std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+        std::cout<<"it is now "<<joseph.time<<" o'clock"<<std::endl;
     }
     timer= clock() - timer;
     std::cout<<"we achieve "<<CLOCKS_PER_SEC*End/static_cast<float>(timer)<<"step steps per second"<<std::endl;

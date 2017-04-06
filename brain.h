@@ -21,6 +21,11 @@ class debughelper;
 //change objects:
 //SegmentUpdateList -> saves active Cells; which Segment; timer
 /*
+ *
+ *fix layer::forgetting() ->uses segment::operator= , which we don't want and made thrownig errorr
+ *
+ *
+ *
  * change boosting, perfect matching should be stable
  *
  *

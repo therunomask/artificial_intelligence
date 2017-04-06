@@ -590,13 +590,14 @@ void layer::forgetting(){
 
     //segments that hardly ever predict correctly will drop below synapses_per_segment/2
     //synapses and deleted completely
+    /*
     for(column& DummyColumn: ColumnList){
         for(cell& DummyCell: DummyColumn.CellList){
             for(size_t DummySegmentIndex=0;DummySegmentIndex<DummyCell.SegList.size();){
                 for(size_t SynIndex=0;SynIndex<DummyCell.SegList[DummySegmentIndex].Synapse.size();){
                     DummyCell.SegList[DummySegmentIndex].Synapse[SynIndex].second-=Forgetfulness;
                     if(DummyCell.SegList[DummySegmentIndex].Synapse[SynIndex].second<=0){
-                        DummyCell.SegList[DummySegmentIndex].Synapse.erase(DummyCell.SegList[DummySegmentIndex].Synapse.begin()+SynIndex);
+                      //->  DummyCell.SegList[DummySegmentIndex].Synapse.erase(DummyCell.SegList[DummySegmentIndex].Synapse.begin()+SynIndex);
                     }else{
                         ++SynIndex;
                     }
@@ -604,7 +605,7 @@ void layer::forgetting(){
                 if(DummyCell.SegList[DummySegmentIndex].Synapse.size()<synapses_per_segment/2 ){
                     std::vector<segment> dummydeque;
                     dummydeque.emplace_back(DummyCell,3);
-                    dummydeque.erase(dummydeque.begin());
+                    //->dummydeque.erase(dummydeque.begin());
                     DummyCell.SegList.begin();
                     //DummyCell.SegList.erase(DummyCell.SegList.begin()+DummySegmentIndex);
                 }else{
@@ -612,7 +613,7 @@ void layer::forgetting(){
                 }
             }
         }
-    }
+    }*/
 }
 
 
@@ -777,15 +778,24 @@ void UpdateInitialiser(layer* DummyLayer){
 void ThreadUpdater(layer* DummyLayer){
     //execute pending updates for DummyLayer
 
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
     DummyLayer->ActiveColumnUpdater();
+
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
     if(DummyLayer!=&DummyLayer->MotherBrain.LowestLayer){
         DummyLayer->ConnectedSynapsesUpdate();
     }
 
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
     DummyLayer->CellUpdater();
 
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
     DummyLayer->Do_SegmentUpdate();
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
 }
 
@@ -996,6 +1006,7 @@ void brain::update(){
 
 
     }//end of the first generation of threads
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
 
     if(max_activation_counter_change==true){
@@ -1027,6 +1038,8 @@ void brain::update(){
 //        }
 
     }
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
     //needs an extra loop due to interference
     for(layer*& DummyLayer:AllLevels){
 
