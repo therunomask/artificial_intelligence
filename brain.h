@@ -5,6 +5,7 @@
 #include<deque>
 #include<unordered_set>
 #include<iostream>
+#include <fstream>
 #include <mutex>
 
 class brain;
@@ -21,6 +22,8 @@ class debughelper;
 //change objects:
 //SegmentUpdateList -> saves active Cells; which Segment; timer
 /*
+ *
+ * implement Brainlog.txt
  *
  * fix first:       problems occur when updating segments, because there may be pointer to synapses
  *                      , that don't exist anymore and also because there may be pointer to segments
@@ -147,6 +150,11 @@ public:
     segment(cell& Cell_to_belong_to, size_t TempActivationCountdown);
     segment(const segment& dummysegment);
     segment operator=(const segment& dummysegment);
+    ~segment(void){
+        who_am_I();
+        std::cout<<"and I will now be destroyed\n";
+        throw std::invalid_argument("segment was deleted\n");
+    }
 
     cell& MotherCell;                            //3*activeCollumns per layer
     static constexpr double MinSynapseWeightActivity=Minimal_sum_of_synapseweights_for_activity;
@@ -180,6 +188,10 @@ public:
 
 class SegmentUpdate{
 public:
+    ~SegmentUpdate(void){
+        std::cout<<"deleting SegmentUpdate\n";
+    }
+
     SegmentUpdate(segment* SegmentAddress,std::vector<std::pair<cell*,double>*> active_cells );
     segment* SegmentAddress;
     std::vector<std::pair<cell*,double>*> active_cells;//points to adresses in segment.Synapse
@@ -362,6 +374,7 @@ public:
     std::vector<std::vector<double>> activation_column;
     std::vector<std::vector<double>> activation_cell;
     std::vector<std::vector<double>> avg_synapses_per_segment;
+    std::ofstream log;
 
     void tell(std::vector<std::vector<double> > *dummyvec);
 };

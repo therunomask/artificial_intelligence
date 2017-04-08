@@ -40,8 +40,8 @@ void BrainConstructionHelper(brain& Init_brain,size_t Number_of_Levels, size_t N
     //we choose at random which columns to connect to and
     //how strong the connection is
 
-    //srand(282346120965);//time(NULL));
-    srand(time(NULL));
+    srand(282346120965);//time(NULL));
+    //srand(time(NULL));
     for(layer*& DummyLayer: Init_brain.AllLevels){
         if(DummyLayer->p_lower_level==NULL){
             continue;
@@ -106,9 +106,6 @@ void BrainConstructionHelper(brain& Init_brain,size_t Number_of_Levels, size_t N
     }
 
 
-
-
-
 }
 
 brain::brain(size_t Number_of_Levels, size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column,std::vector<bool>(*sensoryinput)(size_t time))
@@ -136,6 +133,7 @@ brain::brain(size_t Number_of_Levels, size_t Number_of_Column_per_Layer, size_t 
 
 
 }
+
 
 
 layer::layer(size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column, brain& pBrain)
@@ -399,29 +397,34 @@ void layer::Do_SegmentUpdate(){
     //and delete element of CellUpdateList if there are no more pending updates for this cell
     for(std::vector<cell*>::iterator itdummycell=CellUpdateList.begin();itdummycell!=CellUpdateList.end();){
         for(std::vector<SegmentUpdate>::iterator itDummyUpdate=(*itdummycell)->SegmentUpdateList.begin();itDummyUpdate!=(*itdummycell)->SegmentUpdateList.end();){
+            std::cout<<"pointer position is "<<std::distance((*itdummycell)->SegmentUpdateList.begin(), itDummyUpdate)<<", length of vector is "<<(*itdummycell)->SegmentUpdateList.size()<<std::endl;
             if(itDummyUpdate->timer>0){
                 --itDummyUpdate->timer;
                 ++itDummyUpdate;
             }else{
                 itDummyUpdate->AdaptingSynapses((*itdummycell)->active[0]);
                 (*itdummycell)->SegmentUpdateList.erase(itDummyUpdate);
+std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
             }
         }
         if((*itdummycell)->SegmentUpdateList.size()==0){
+            std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
             CellUpdateList.erase(itdummycell);
         }else{
             ++itdummycell;
         }
     }
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
 }
+
 void SegmentUpdate::AdaptingSynapses(bool success){
     //depending on success either we punish all the connections to (previously) active cells
     //or strengthen them.
     //if connection strength drops to zero or below we remove the corresponding synapse from the
     //segment.
-    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
-
     for(std::pair<cell*,double>*& dummySynapse: active_cells){
         if(success==true){
             dummySynapse->second= std::max(static_cast<double>(1),dummySynapse->second+SegmentAddress->LearnIncrement);
@@ -572,7 +575,7 @@ void layer::CellLearnInitiator(void){
 
 
 void layer::Three_CellListUpdater(void){
-    if(Three_CellActivityList.size()<MotherBrain.max_activation_counter){
+    if(Three_CellActivityList.size()>MotherBrain.max_activation_counter){
         Three_CellActivityList.pop_back();
     }
     Three_CellActivityList.insert(Three_CellActivityList.begin(),CellActivityList);
@@ -580,7 +583,7 @@ void layer::Three_CellListUpdater(void){
     Three_CellActivityList[0].insert(Three_CellActivityList[0].begin(),p_upper_level->CellActivityList.begin(),p_upper_level->CellActivityList.end());
 }
 void top_layer::Three_CellListUpdater(void){
-    if(Three_CellActivityList.size()<MotherBrain.max_activation_counter){
+    if(Three_CellActivityList.size()>MotherBrain.max_activation_counter){
         Three_CellActivityList.pop_back();
     }
     Three_CellActivityList.insert(Three_CellActivityList.begin(),CellActivityList);
@@ -635,7 +638,7 @@ void bottom_layer:: FindBestColumns(){
 }
 
 void bottom_layer::Three_CellListUpdater(){
-    if(Three_CellActivityList.size()<MotherBrain.max_activation_counter){
+    if(Three_CellActivityList.size()>MotherBrain.max_activation_counter){
         Three_CellActivityList.pop_back();
     }
     Three_CellActivityList.insert(Three_CellActivityList.begin(),CellActivityList);
@@ -932,7 +935,7 @@ debughelper::debughelper(void):
     activation_cell(std::vector<std::vector<double>>(layers_per_brain,std::vector<double>())),
     avg_synapses_per_segment(std::vector<std::vector<double>>(layers_per_brain,std::vector<double>()))
 {
-
+    log.open("BrainLog.txt");
 }
 
 void debughelper::tell(std::vector<std::vector<double> >* dummyvec){
