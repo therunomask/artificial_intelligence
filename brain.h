@@ -23,7 +23,9 @@ class debughelper;
 //SegmentUpdateList -> saves active Cells; which Segment; timer
 /*
  *
- * implement Brainlog.txt
+ * still implement Brainlog.txt
+ *
+ *  open logfile just once!!
  *
  * fix first:       problems occur when updating segments, because there may be pointer to synapses
  *                      , that don't exist anymore and also because there may be pointer to segments
@@ -189,7 +191,7 @@ public:
 class SegmentUpdate{
 public:
     ~SegmentUpdate(void){
-        std::cout<<"deleting SegmentUpdate\n";
+        //std::cout<<"deleting SegmentUpdate\n";
     }
 
     SegmentUpdate(segment* SegmentAddress,std::vector<std::pair<cell*,double>*> active_cells );
@@ -369,14 +371,17 @@ class debughelper{
 private:
 public:
     debughelper(void);
+    ~debughelper(void);
     std::vector<std::vector<double>> success_column;
     std::vector<std::vector<double>> success_cell;
     std::vector<std::vector<double>> activation_column;
     std::vector<std::vector<double>> activation_cell;
     std::vector<std::vector<double>> avg_synapses_per_segment;
-    std::ofstream log;
+    std::ofstream Log;
 
+    void writeLog(std::string message);
     void tell(std::vector<std::vector<double> > *dummyvec);
+    //std::ostream& operator<<()
 };
 
 
@@ -395,7 +400,6 @@ public:
     debughelper Martin_Luther;
     size_t max_activation_counter;
     bool max_activation_counter_change;
-    std::mutex max_activation_counter_mutex;
     bool multithreadding=false;
 
 

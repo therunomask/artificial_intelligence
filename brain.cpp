@@ -115,10 +115,9 @@ brain::brain(size_t Number_of_Levels, size_t Number_of_Column_per_Layer, size_t 
       HighestLayer(top_layer(Number_of_Column_per_Layer,Number_of_Cells_per_Column,*this)),
       AllLevels(std::vector<layer*>()),
       time(0),
-      Martin_Luther(debughelper()),
+      Martin_Luther(),
       max_activation_counter(5),
-      max_activation_counter_change(false),
-      max_activation_counter_mutex()
+      max_activation_counter_change(false)
 {
     ListOfLevels.reserve(Number_of_Levels);
     for(size_t i=0;i<Number_of_Levels-2;++i){
@@ -131,6 +130,14 @@ brain::brain(size_t Number_of_Levels, size_t Number_of_Column_per_Layer, size_t 
     AllLevels.push_back(&HighestLayer);
     BrainConstructionHelper(*this, NumLevels ,Number_of_Column_per_Layer,Number_of_Cells_per_Column/*,sensoryinput*/);
 
+    Martin_Luther.writeLog("creating brains!\n");
+//    std::cout<<"wir schreiben jetzt\n";
+//    std::ofstream schreibi("BrainLog.txt");
+//    schreibi<<"zweite nachricht\n";
+//    schreibi.close();
+//    std::ofstream schreiby("BrainLog.txt",std::ofstream::app);
+//    schreiby<<"zweite nachricht\n";
+//    schreiby.close();
 
 }
 
@@ -168,7 +175,7 @@ layer::layer(const layer &dummylayer):
     Num_Columns(dummylayer.Num_Columns)
 
 {
-    std::cout<<"Freeze! You are copying layers! \n";
+
     throw std::invalid_argument("Don't copy layers \n");
 
    // return bla;
@@ -397,26 +404,26 @@ void layer::Do_SegmentUpdate(){
     //and delete element of CellUpdateList if there are no more pending updates for this cell
     for(std::vector<cell*>::iterator itdummycell=CellUpdateList.begin();itdummycell!=CellUpdateList.end();){
         for(std::vector<SegmentUpdate>::iterator itDummyUpdate=(*itdummycell)->SegmentUpdateList.begin();itDummyUpdate!=(*itdummycell)->SegmentUpdateList.end();){
-            std::cout<<"pointer position is "<<std::distance((*itdummycell)->SegmentUpdateList.begin(), itDummyUpdate)<<", length of vector is "<<(*itdummycell)->SegmentUpdateList.size()<<std::endl;
+           // std::cout<<"pointer position is "<<std::distance((*itdummycell)->SegmentUpdateList.begin(), itDummyUpdate)<<", length of vector is "<<(*itdummycell)->SegmentUpdateList.size()<<std::endl);
             if(itDummyUpdate->timer>0){
                 --itDummyUpdate->timer;
                 ++itDummyUpdate;
             }else{
                 itDummyUpdate->AdaptingSynapses((*itdummycell)->active[0]);
                 (*itdummycell)->SegmentUpdateList.erase(itDummyUpdate);
-std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+//std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
             }
         }
         if((*itdummycell)->SegmentUpdateList.size()==0){
-            std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+            //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
             CellUpdateList.erase(itdummycell);
         }else{
             ++itdummycell;
         }
     }
-    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+    //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
 }
 
@@ -443,7 +450,7 @@ void SegmentUpdate::AdaptingSynapses(bool success){
             }
         }
     }
-    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+    //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
 }
 
@@ -785,24 +792,24 @@ void UpdateInitialiser(layer* DummyLayer){
 void ThreadUpdater(layer* DummyLayer){
     //execute pending updates for DummyLayer
 
-    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+    //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
     DummyLayer->ActiveColumnUpdater();
 
-    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+    //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
     if(DummyLayer!=&DummyLayer->MotherBrain.LowestLayer){
         DummyLayer->ConnectedSynapsesUpdate();
     }
 
-    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+    //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
     DummyLayer->CellUpdater();
 
-    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+    //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
     DummyLayer->Do_SegmentUpdate();
-    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+    //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
 }
 
@@ -829,22 +836,22 @@ void brain::inventory(){
     bool dbool=false;
     for(size_t index1=0;index1<AllLevels.size();++index1){
         if(&AllLevels[index1]->MotherBrain!=this&&dbool==false){
-            std::cout<<index1<<"-th layer does not find its mother\n";
+            //std::cout<<index1<<"-th layer does not find its mother\n";
             dbool=true;
         }
         for(size_t index2=0;index2<AllLevels[index1]->ColumnList.size();++index2){
             if(&AllLevels[index1]->ColumnList[index2].MotherLayer!=AllLevels[index1]&&dbool==false){
-                std::cout<<index2<<"-th column of "<<index1<<"-th layer does not find its mother\n";
+                //std::cout<<index2<<"-th column of "<<index1<<"-th layer does not find its mother\n";
                 dbool=true;
             }
             for(size_t index3=0;index3<AllLevels[index1]->ColumnList[index2].CellList.size();++index3){
                 if(&AllLevels[index1]->ColumnList[index2].CellList[index3].MotherColumn!=&AllLevels[index1]->ColumnList[index2]&&dbool==false){
-                    std::cout<<index3<<"-th cell of "<<index2<<"-th column of "<<index1<<"-th layer does not find its mother\n";
+                    //std::cout<<index3<<"-th cell of "<<index2<<"-th column of "<<index1<<"-th layer does not find its mother\n";
                     dbool=true;
                 }
                 for(size_t index4=0;index4<AllLevels[index1]->ColumnList[index2].CellList[index3].SegList.size();++index4){
                     if(&AllLevels[index1]->ColumnList[index2].CellList[index3].SegList[index4].MotherCell!=&AllLevels[index1]->ColumnList[index2].CellList[index3]&&dbool==false){
-                        std::cout<<index4<<"-th segment of "<<index3<<"-th cell of "<<index2<<"-th column of "<<index1<<"-th layer does not find its mother\n";
+                        //std::cout<<index4<<"-th segment of "<<index3<<"-th cell of "<<index2<<"-th column of "<<index1<<"-th layer does not find its mother\n";
                         dbool=true;
                     }
 
@@ -854,7 +861,7 @@ void brain::inventory(){
 
     }
     if(dbool==false){
-        std::cout<<"everything works! \n";
+        //std::cout<<"everything works! \n";
     }
     dbool=false;
     for(size_t i=0;i<AllLevels.size()-1;++i){
@@ -868,7 +875,7 @@ void brain::inventory(){
         }
     }
     if(dbool==false){
-        std::cout<<"everything works2! \n";
+        //std::cout<<"everything works2! \n";
     }
 }
 
@@ -878,12 +885,12 @@ size_t layer::finding_oneself(){
             return i;
         }
     }
-    std::cout<<"layer got lost finding itself \n";
+    //std::cout<<"layer got lost finding itself \n";
     std::abort();
 
 }
 void layer::who_am_I(void){
-    std::cout<<"I am layer "<<finding_oneself()<<std::endl;
+    //std::cout<<"I am layer "<<finding_oneself()<<std::endl;
 }
 
 size_t column::finding_oneself(){
@@ -898,8 +905,8 @@ size_t column::finding_oneself(){
 }
 void column::who_am_I(void){
 
-    std::cout<<"I am column "<<finding_oneself();
-    std::cout<<" of layer "<<MotherLayer.finding_oneself()<<std::endl;
+    //std::cout<<"I am column "<<finding_oneself();
+    //std::cout<<" of layer "<<MotherLayer.finding_oneself()<<std::endl;
 }
 size_t cell::finding_oneself(){
     for(size_t i=0;i<MotherColumn.CellList.size();++i){
@@ -911,9 +918,9 @@ size_t cell::finding_oneself(){
 
 }
 void cell::who_am_I(void){
-    std::cout<<"I am cell "<<finding_oneself();
-    std::cout<<" of column "<<MotherColumn.finding_oneself();
-    std::cout<<" of layer "<<MotherColumn.MotherLayer.finding_oneself()<<std::endl;
+    //std::cout<<"I am cell "<<finding_oneself();
+    //std::cout<<" of column "<<MotherColumn.finding_oneself();
+    //std::cout<<" of layer "<<MotherColumn.MotherLayer.finding_oneself()<<std::endl;
 }
 size_t segment::finding_oneself(){
     for(size_t i=0;i<MotherCell.SegList.size();++i){
@@ -925,7 +932,7 @@ size_t segment::finding_oneself(){
 
 }
 void segment::who_am_I(void){
-    std::cout<<"I am segment "<<finding_oneself()<<" of cell "<<MotherCell.finding_oneself()<<" of column "<<MotherCell.MotherColumn.finding_oneself()<<" of layer "<<MotherCell.MotherColumn.MotherLayer.finding_oneself()<<std::endl;
+    //std::cout<<"I am segment "<<finding_oneself()<<" of cell "<<MotherCell.finding_oneself()<<" of column "<<MotherCell.MotherColumn.finding_oneself()<<" of layer "<<MotherCell.MotherColumn.MotherLayer.finding_oneself()<<std::endl;
 }
 
 debughelper::debughelper(void):
@@ -933,9 +940,22 @@ debughelper::debughelper(void):
     success_cell(std::vector<std::vector<double>>(layers_per_brain,std::vector<double>())),
     activation_column(std::vector<std::vector<double>>(layers_per_brain,std::vector<double>())),
     activation_cell(std::vector<std::vector<double>>(layers_per_brain,std::vector<double>())),
-    avg_synapses_per_segment(std::vector<std::vector<double>>(layers_per_brain,std::vector<double>()))
+    avg_synapses_per_segment(std::vector<std::vector<double>>(layers_per_brain,std::vector<double>())),
+    Log("BrainLog.txt")
 {
-    log.open("BrainLog.txt");
+    Log<<"oeffne Logfile\n";
+    Log.flush();
+}
+
+debughelper::~debughelper(){
+
+    std::cout<<"we close the log\n";
+}
+
+void debughelper::writeLog(std::__cxx11::string message){
+
+    Log<<message;
+    Log.flush();
 }
 
 void debughelper::tell(std::vector<std::vector<double> >* dummyvec){
@@ -958,17 +978,17 @@ void debughelper::tell(std::vector<std::vector<double> >* dummyvec){
 
     }
 
-    std::cout<<"This is the debughelper speaking, taking the average of "<<name<<".\n";
+    //std::cout<<"This is the debughelper speaking, taking the average of "<<name<<".\n";
 
     for(size_t l=0;l<dummyvec->size();++l){
-        std::cout<<"In layer "<<l<<" the statistics is. \n";
+        //std::cout<<"In layer "<<l<<" the statistics is. \n";
         for(size_t t=0;t<(*dummyvec)[l].size()/100;++t){
-            std::cout<<" average number at time "<<t<<" is ";
+            //std::cout<<" average number at time "<<t<<" is ";
             double average=0;
             for(size_t u=0;u<100;++u){
                 average+=(*dummyvec)[l][100*t+u];
             }
-            std::cout<<average/100<<std::endl;
+            //std::cout<<average/100<<std::endl;
         }
     }
 }
@@ -1001,6 +1021,7 @@ void brain::update(){
  * but don't implement updates until after the last layer.
 
 */    
+    Martin_Luther.writeLog("12345\n");
     {//create Threads only locally in here
         if(multithreadding==true){
             std::vector<std::thread> Threads;
@@ -1019,7 +1040,7 @@ void brain::update(){
         }
 
     }//end of the first generation of threads
-    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+    //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
 
     if(max_activation_counter_change==true){
@@ -1046,7 +1067,7 @@ void brain::update(){
 
 
     }
-    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+    //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
     //needs an extra loop due to interference
     for(layer*& DummyLayer:AllLevels){
