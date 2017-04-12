@@ -23,9 +23,10 @@ class debughelper;
 //SegmentUpdateList -> saves active Cells; which Segment; timer
 /*
  *
- * still implement Brainlog.txt
+ * search for emergence of random behavior using inventory function
+ * does inventory deviate at t=0?
  *
- *  open logfile just once!!
+ *
  *
  * fix first:       problems occur when updating segments, because there may be pointer to synapses
  *                      , that don't exist anymore and also because there may be pointer to segments
@@ -379,9 +380,11 @@ public:
     std::vector<std::vector<double>> avg_synapses_per_segment;
     std::ofstream Log;
 
-    void writeLog(std::string message);
+    template<typename T>
+    std::ofstream& operator<< ( T message);
+    //std::ofstream& operator<< ( double bla);
     void tell(std::vector<std::vector<double> > *dummyvec);
-    //std::ostream& operator<<()
+
 };
 
 
@@ -409,6 +412,7 @@ public:
     void update(void);
 
     void inventory(void);
+    void pointerCheck(void);
     /*updates:
      * layer::actcolumns
      * layer::SegmentUpdateList

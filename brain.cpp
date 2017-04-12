@@ -130,14 +130,7 @@ brain::brain(size_t Number_of_Levels, size_t Number_of_Column_per_Layer, size_t 
     AllLevels.push_back(&HighestLayer);
     BrainConstructionHelper(*this, NumLevels ,Number_of_Column_per_Layer,Number_of_Cells_per_Column/*,sensoryinput*/);
 
-    Martin_Luther.writeLog("creating brains!\n");
-//    std::cout<<"wir schreiben jetzt\n";
-//    std::ofstream schreibi("BrainLog.txt");
-//    schreibi<<"zweite nachricht\n";
-//    schreibi.close();
-//    std::ofstream schreiby("BrainLog.txt",std::ofstream::app);
-//    schreiby<<"zweite nachricht\n";
-//    schreiby.close();
+
 
 }
 
@@ -284,7 +277,6 @@ std::vector<std::pair<cell*,double>*>  segment::GetActiveCells(){
 
 
 void layer::FindBestColumns(void){
-    static size_t counter=0;
     //finding #DesiredLocalActivity highest overlapping columns
 
     std::priority_queue<std::pair<double, column*>,std::vector<std::pair<double,column*>>,std::greater<std::pair<double,column*>>> winner;
@@ -307,6 +299,10 @@ void layer::FindBestColumns(void){
         winner.pop();
     }
 
+//    for(size_t i=0;i<TempActColumns.size();++i){
+//        MotherBrain.Martin_Luther<<"at time "<<MotherBrain.time<<" ";
+//        TempActColumns[i]->who_am_I();
+//    }
 
 }
 
@@ -335,19 +331,28 @@ void layer::ConnectedSynapsesUpdate(void){
     size_t success=0;
     size_t failure=0;
 
+//    for(size_t i=0;i<ActColumns.size();++i){
+//        MotherBrain.Martin_Luther<<"at time "<<MotherBrain.time<<" ";
+//        ActColumns[i]->who_am_I();
+//    }
+
     for(auto& pdummyColumn: ActColumns){
 
-        for(auto& dummy_connected_synapse : pdummyColumn->ConnectedSynapses){
+        for(auto& dummy_connected_synapse : pdummyColumn->ConnectedSynapses){            
             if(dummy_connected_synapse.first->active==true){
-                dummy_connected_synapse.second=std::max(dummy_connected_synapse.second+CondsInc/(pillars_per_layer*active_pillers_per_pillar),1.0);
+                dummy_connected_synapse.second=std::min(dummy_connected_synapse.second+CondsInc/(pillars_per_layer*active_pillers_per_pillar),1.0);
                 //
                 ++success;
             }else{
-                dummy_connected_synapse.second=std::min(dummy_connected_synapse.second-CondsDec/(pillars_per_layer-pillars_per_layer*active_pillers_per_pillar),0.0);
+                dummy_connected_synapse.second=std::max(dummy_connected_synapse.second-CondsDec/(pillars_per_layer-pillars_per_layer*active_pillers_per_pillar),0.0);
                 //
                 ++failure;
-            }
+            }            
+            //MotherBrain.Martin_Luther<<dummy_connected_synapse.second<<" is the current connectedness";
+            //MotherBrain.Martin_Luther<<"at time "<<MotherBrain.time<<std::endl;
+
         }
+        //pdummyColumn->who_am_I();
     }
     MotherBrain.Martin_Luther.success_column[finding_oneself()].push_back(static_cast<double>(success)/static_cast<double>(success+failure));
 
@@ -830,28 +835,50 @@ void ThreadUpdater(layer* DummyLayer){
 
 */
 
-
 void brain::inventory(){
+    for(layer*& dummylevel:AllLevels){
+        dummylevel->who_am_I();
+        for(column& dummycolumn:dummylevel->ColumnList){
+            dummycolumn.who_am_I();
+            for(auto& dummysynapse : dummycolumn.ConnectedSynapses){
+                Martin_Luther<<dummysynapse.second<<" and pointing to ";
+                dummysynapse.first->who_am_I();
+            }
+            for(cell& dummycell:dummycolumn.CellList){
+                dummycell.who_am_I();
+                for(segment& dummysegment:dummycell.SegList){
+                    dummysegment.who_am_I();
+                    for(auto& dummysynapse : dummysegment.Synapse){
+                        Martin_Luther<<dummysynapse.second<<" and pointing to ";
+                        dummysynapse.first->who_am_I();
+                    }
+                }
+            }
+        }
+    }
+}
+
+void brain::pointerCheck(){
 
     bool dbool=false;
     for(size_t index1=0;index1<AllLevels.size();++index1){
         if(&AllLevels[index1]->MotherBrain!=this&&dbool==false){
-            //std::cout<<index1<<"-th layer does not find its mother\n";
+            std::cout<<index1<<"-th layer does not find its mother\n";
             dbool=true;
         }
         for(size_t index2=0;index2<AllLevels[index1]->ColumnList.size();++index2){
             if(&AllLevels[index1]->ColumnList[index2].MotherLayer!=AllLevels[index1]&&dbool==false){
-                //std::cout<<index2<<"-th column of "<<index1<<"-th layer does not find its mother\n";
+                std::cout<<index2<<"-th column of "<<index1<<"-th layer does not find its mother\n";
                 dbool=true;
             }
             for(size_t index3=0;index3<AllLevels[index1]->ColumnList[index2].CellList.size();++index3){
                 if(&AllLevels[index1]->ColumnList[index2].CellList[index3].MotherColumn!=&AllLevels[index1]->ColumnList[index2]&&dbool==false){
-                    //std::cout<<index3<<"-th cell of "<<index2<<"-th column of "<<index1<<"-th layer does not find its mother\n";
+                    std::cout<<index3<<"-th cell of "<<index2<<"-th column of "<<index1<<"-th layer does not find its mother\n";
                     dbool=true;
                 }
                 for(size_t index4=0;index4<AllLevels[index1]->ColumnList[index2].CellList[index3].SegList.size();++index4){
                     if(&AllLevels[index1]->ColumnList[index2].CellList[index3].SegList[index4].MotherCell!=&AllLevels[index1]->ColumnList[index2].CellList[index3]&&dbool==false){
-                        //std::cout<<index4<<"-th segment of "<<index3<<"-th cell of "<<index2<<"-th column of "<<index1<<"-th layer does not find its mother\n";
+                        std::cout<<index4<<"-th segment of "<<index3<<"-th cell of "<<index2<<"-th column of "<<index1<<"-th layer does not find its mother\n";
                         dbool=true;
                     }
 
@@ -861,7 +888,7 @@ void brain::inventory(){
 
     }
     if(dbool==false){
-        //std::cout<<"everything works! \n";
+        std::cout<<"everything works! \n";
     }
     dbool=false;
     for(size_t i=0;i<AllLevels.size()-1;++i){
@@ -875,7 +902,7 @@ void brain::inventory(){
         }
     }
     if(dbool==false){
-        //std::cout<<"everything works2! \n";
+        std::cout<<"everything works2! \n";
     }
 }
 
@@ -890,7 +917,7 @@ size_t layer::finding_oneself(){
 
 }
 void layer::who_am_I(void){
-    //std::cout<<"I am layer "<<finding_oneself()<<std::endl;
+    MotherBrain.Martin_Luther<<"I am layer "<<finding_oneself()<<std::endl;
 }
 
 size_t column::finding_oneself(){
@@ -905,8 +932,8 @@ size_t column::finding_oneself(){
 }
 void column::who_am_I(void){
 
-    //std::cout<<"I am column "<<finding_oneself();
-    //std::cout<<" of layer "<<MotherLayer.finding_oneself()<<std::endl;
+    MotherLayer.MotherBrain.Martin_Luther<<"I am column "<<finding_oneself();
+    MotherLayer.MotherBrain.Martin_Luther<<" of layer "<<MotherLayer.finding_oneself()<<std::endl;
 }
 size_t cell::finding_oneself(){
     for(size_t i=0;i<MotherColumn.CellList.size();++i){
@@ -918,9 +945,9 @@ size_t cell::finding_oneself(){
 
 }
 void cell::who_am_I(void){
-    //std::cout<<"I am cell "<<finding_oneself();
-    //std::cout<<" of column "<<MotherColumn.finding_oneself();
-    //std::cout<<" of layer "<<MotherColumn.MotherLayer.finding_oneself()<<std::endl;
+    MotherColumn.MotherLayer.MotherBrain.Martin_Luther<<"I am cell "<<finding_oneself();
+    MotherColumn.MotherLayer.MotherBrain.Martin_Luther<<" of column "<<MotherColumn.finding_oneself();
+    MotherColumn.MotherLayer.MotherBrain.Martin_Luther<<" of layer "<<MotherColumn.MotherLayer.finding_oneself()<<std::endl;
 }
 size_t segment::finding_oneself(){
     for(size_t i=0;i<MotherCell.SegList.size();++i){
@@ -932,7 +959,7 @@ size_t segment::finding_oneself(){
 
 }
 void segment::who_am_I(void){
-    //std::cout<<"I am segment "<<finding_oneself()<<" of cell "<<MotherCell.finding_oneself()<<" of column "<<MotherCell.MotherColumn.finding_oneself()<<" of layer "<<MotherCell.MotherColumn.MotherLayer.finding_oneself()<<std::endl;
+    MotherCell.MotherColumn.MotherLayer.MotherBrain.Martin_Luther<<"I am segment "<<finding_oneself()<<" of cell "<<MotherCell.finding_oneself()<<" of column "<<MotherCell.MotherColumn.finding_oneself()<<" of layer "<<MotherCell.MotherColumn.MotherLayer.finding_oneself()<<std::endl;
 }
 
 debughelper::debughelper(void):
@@ -952,11 +979,13 @@ debughelper::~debughelper(){
     std::cout<<"we close the log\n";
 }
 
-void debughelper::writeLog(std::__cxx11::string message){
-
+template<typename T>
+std::ofstream& debughelper::operator<<(T message){
     Log<<message;
-    Log.flush();
+    //Log.flush();
+    return Log;
 }
+
 
 void debughelper::tell(std::vector<std::vector<double> >* dummyvec){
     //prints the name of one of the types of statistics debughelper is taking during runtime
@@ -1021,7 +1050,9 @@ void brain::update(){
  * but don't implement updates until after the last layer.
 
 */    
-    Martin_Luther.writeLog("12345\n");
+    Martin_Luther<<"it is now "<<time<<" since big bang\n";
+
+    inventory();
     {//create Threads only locally in here
         if(multithreadding==true){
             std::vector<std::thread> Threads;
