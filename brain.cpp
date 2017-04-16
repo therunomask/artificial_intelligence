@@ -156,7 +156,8 @@ layer::layer(size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Colum
     for(size_t index=0;index<Number_of_Column_per_Layer;++index){
         ColumnList.emplace_back(*this,Number_of_Cells_per_Column);
     }
-    srand(time(NULL));
+    srand(282346120965);
+    //srand(time(NULL));
     for (column*& dummycolumn: ActColumns){
         dummycolumn=&ColumnList[rand()%ColumnList.size()];
     }
@@ -225,7 +226,7 @@ cell::cell(column& Column_to_belong_to)
       SegmentUpdateList(std::vector<SegmentUpdate>())
 {
     //SegList.reserve(synapses_per_segment);
-    for(size_t index=0; index<synapses_per_segment;++index){
+    for(size_t index=0; index<segments_per_cell;++index){
         SegList.emplace_back(*this,1);
     }
 
@@ -312,12 +313,14 @@ void layer::ActiveColumnUpdater(void){
     for(column& dummycolumn:ColumnList){
         dummycolumn.active=false;
     }
+
+
     for(size_t i=0;i<TempActColumns.size();++i){
         ActColumns[i]=TempActColumns[i];
         ActColumns[i]->active=true;
-
-
     }
+
+
     //debughelper statistics
     MotherBrain.Martin_Luther.activation_column[finding_oneself()].push_back(TempActColumns.size());
 
@@ -331,10 +334,7 @@ void layer::ConnectedSynapsesUpdate(void){
     size_t success=0;
     size_t failure=0;
 
-//    for(size_t i=0;i<ActColumns.size();++i){
-//        MotherBrain.Martin_Luther<<"at time "<<MotherBrain.time<<" ";
-//        ActColumns[i]->who_am_I();
-//    }
+
 
     for(auto& pdummyColumn: ActColumns){
 
@@ -550,6 +550,9 @@ void layer::CellLearnInitiator(void){
     //if not, activate all the cells in the column
     //and add a segment pointing to the active
     //cells of last round
+
+
+
     for(column*& DummyColumn:ActColumns){
         if(DummyColumn->expect==true){
             //this function finds the segment that fits best the
@@ -567,6 +570,7 @@ void layer::CellLearnInitiator(void){
             size_t SegmentCounter=0;
             size_t SegmentMinCounter=-1;//maximal value of size_t
             cell* PoorestCell=&DummyColumn->CellList[0];
+
             for(cell& DummyCell:DummyColumn->CellList){
                 PendingActivity.push_back(&DummyCell);
                 SegmentCounter=DummyCell.SegList.size();
@@ -575,6 +579,7 @@ void layer::CellLearnInitiator(void){
                     SegmentMinCounter=SegmentCounter;
                 }
             }
+
             PoorestCell->SegList.emplace_back(*PoorestCell,1);
             PoorestCell->SegList[PoorestCell->SegList.size()-1].BlindSynapseAdding(0);
 
@@ -676,7 +681,8 @@ double column::feed_input(void){
 segment* column::BestMatchingSegmentInColumnActivateCells(void){
     //find the best matching segment of all the cells in the column,
     //which led the column to expect its activation (i.e. cell.expect==true)
-    //return that segment
+    //return that segment.
+    //also activate all the cells that expected activation of the column
     double max_count=0;
     segment* pbestSegment= &CellList[0].SegList[0];
     for(cell& dummy_cell: CellList){
@@ -959,7 +965,7 @@ size_t segment::finding_oneself(){
 
 }
 void segment::who_am_I(void){
-    MotherCell.MotherColumn.MotherLayer.MotherBrain.Martin_Luther<<"I am segment "<<finding_oneself()<<" of cell "<<MotherCell.finding_oneself()<<" of column "<<MotherCell.MotherColumn.finding_oneself()<<" of layer "<<MotherCell.MotherColumn.MotherLayer.finding_oneself()<<std::endl;
+    MotherCell.MotherColumn.MotherLayer.MotherBrain.Martin_Luther<<"I am segment with activationcountdown "<<ActivationCountdown<<", "<<finding_oneself()<<" of cell "<<MotherCell.finding_oneself()<<" of column "<<MotherCell.MotherColumn.finding_oneself()<<" of layer "<<MotherCell.MotherColumn.MotherLayer.finding_oneself()<<std::endl;
 }
 
 debughelper::debughelper(void):
@@ -1051,8 +1057,8 @@ void brain::update(){
 
 */    
     Martin_Luther<<"it is now "<<time<<" since big bang\n";
+    //inventory();
 
-    inventory();
     {//create Threads only locally in here
         if(multithreadding==true){
             std::vector<std::thread> Threads;

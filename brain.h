@@ -23,9 +23,6 @@ class debughelper;
 //SegmentUpdateList -> saves active Cells; which Segment; timer
 /*
  *
- * search for emergence of random behavior using inventory function
- * does inventory deviate at t=0?
- *
  *
  *
  * fix first:       problems occur when updating segments, because there may be pointer to synapses
@@ -35,12 +32,16 @@ class debughelper;
  *fix layer::forgetting() ->uses segment::operator= , which we don't want and made thrownig errorr
  *
  *
+ *in brain constructer: initiate stuff like threeCellActivityList randomly
+ * instead of empty
  *
  * change boosting, perfect matching should be stable
  *
  *
+ * do we want a whole sequence of n predicting segments in order to
+ * predict in n timesteps, or do we allow for a gap in the sequence?
  *
- * add Segment removing mechanism
+ *
  *
  * check if things depend on a fixed segment number
  *
@@ -112,13 +113,16 @@ propagate confusion to higher layers
  *
  */
 
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//          optimize with respect to these numbers
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 //general dimensions of the system
-#define layers_per_brain                            8
+#define layers_per_brain                            4//8 with multithreadding
 #define active_pillers_per_pillar                   0.02
 #define cells_per_column                            3
 #define pillars_per_layer                           4 / active_pillers_per_pillar
-#define segments_per_cell                           cells_per_column/active_pillers_per_pillar
+#define segments_per_cell                           cells_per_column/active_pillers_per_pillar/7
 #define synapses_per_segment                        3*active_pillers_per_pillar*pillars_per_layer
 //end of general dimensions
 
