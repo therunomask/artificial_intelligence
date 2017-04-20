@@ -25,8 +25,7 @@ class debughelper;
  *
  *
  *
- * fix first:       problems occur when updating segments, because there may be pointer to synapses
- *                      , that don't exist anymore and also because there may be pointer to segments
+ * fix first:       problems occur when updating segments, because there may be pointer to segments
  *                      , which don't exist anymore. Probably there still lurk other problems around.
  *
  *fix layer::forgetting() ->uses segment::operator= , which we don't want and made thrownig errorr
@@ -185,7 +184,7 @@ public:
 
 
     void BlindSynapseAdding(size_t t);
-    std::vector<std::pair<cell*,double>*> GetActiveCells();
+    std::vector<cell *> GetActiveCells();
 
 
     //debugging after this mark
@@ -199,9 +198,9 @@ public:
         //std::cout<<"deleting SegmentUpdate\n";
     }
 
-    SegmentUpdate(segment* SegmentAddress,std::vector<std::pair<cell*,double>*> active_cells );
+    SegmentUpdate(segment* SegmentAddress, std::vector<cell*> active_cells );
     segment* SegmentAddress;
-    std::vector<std::pair<cell*,double>*> active_cells;//points to adresses in segment.Synapse
+    std::vector<cell*> active_cells;//points to adresses in segment.Synaps
     size_t timer;
 
     void AdaptingSynapses(bool positive);//increase connectedness

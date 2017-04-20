@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
 {
 
     clock_t timer;
-    size_t End=10;
+    size_t End=1000;
     std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
     brain joseph(layers_per_brain,pillars_per_layer,cells_per_column, senses);

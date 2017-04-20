@@ -238,7 +238,7 @@ cell::cell(const cell& dummycell):
     throw std::invalid_argument("Don't copy cells! \n");
 }
 
-SegmentUpdate::SegmentUpdate(segment*SegmentAddress, std::vector<std::pair<cell *, double> *> active_cells):
+SegmentUpdate::SegmentUpdate(segment*SegmentAddress, std::vector<cell*> active_cells):
     SegmentAddress(SegmentAddress),
     active_cells(active_cells),
     timer(SegmentAddress->ActivationCountdown)
@@ -256,21 +256,40 @@ segment::segment(cell& Cell_to_belong_to, size_t TempActivationCountdown)
 }
 segment::segment(const segment &dummysegment):
     MotherCell(dummysegment.MotherCell),
+    Synapse(dummysegment.Synapse),
     ActivationCountdown(dummysegment.ActivationCountdown)
 {
-    throw std::invalid_argument("Don't copy segments! \n");
+    //debug!!
+    std::cout<<"we are copying segments!!\n";
+
+    for(SegmentUpdate& dummyupdate:dummysegment.MotherCell.SegmentUpdateList){
+        if(dummyupdate.SegmentAddress==&dummysegment){
+            dummyupdate.SegmentAddress=this;
+        }
+    }
+    for(std::vector<segment*>& dummyvector:dummysegment.MotherCell.ActiveSegments){
+        for(segment*& SegmentToAlter:dummyvector ){
+            if(SegmentToAlter==&dummysegment){
+                SegmentToAlter=this;
+            }
+        }
+    }
 
 }
 
 segment segment::operator =(const segment& dummysegment){
-    throw std::invalid_argument("Don't operator= segments! \n");
+    //debug!!
+    std::cout<<"this one was operator='d\n";
+    segment SegmentToReturn(dummysegment);
+    return SegmentToReturn;
+
 }
 
-std::vector<std::pair<cell*,double>*>  segment::GetActiveCells(){
-    std::vector<std::pair<cell*,double>*> tempactive_cells;
+std::vector<cell*>  segment::GetActiveCells(){
+    std::vector<cell*> tempactive_cells;
     for(std::pair <cell*,double>& dummySynapse: Synapse){
         if(dummySynapse.first->active[1]==true){
-            tempactive_cells.emplace_back(&dummySynapse);
+            tempactive_cells.emplace_back(dummySynapse.first);
         }
     }
     return tempactive_cells;
@@ -416,20 +435,15 @@ void layer::Do_SegmentUpdate(){
             }else{
                 itDummyUpdate->AdaptingSynapses((*itdummycell)->active[0]);
                 (*itdummycell)->SegmentUpdateList.erase(itDummyUpdate);
-//std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
-
             }
         }
         if((*itdummycell)->SegmentUpdateList.size()==0){
-            //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
             CellUpdateList.erase(itdummycell);
         }else{
             ++itdummycell;
         }
     }
-    //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
-
 }
 
 void SegmentUpdate::AdaptingSynapses(bool success){
@@ -437,25 +451,30 @@ void SegmentUpdate::AdaptingSynapses(bool success){
     //or strengthen them.
     //if connection strength drops to zero or below we remove the corresponding synapse from the
     //segment.
-    for(std::pair<cell*,double>*& dummySynapse: active_cells){
-        if(success==true){
-            dummySynapse->second= std::max(static_cast<double>(1),dummySynapse->second+SegmentAddress->LearnIncrement);
-            if(SegmentAddress->Synapse.size()<synapses_per_segment){
-                SegmentAddress->BlindSynapseAdding(SegmentAddress->ActivationCountdown);
-            }
-        }else{
-            dummySynapse->second= dummySynapse->second- SegmentAddress->LearnIncrement;
-            if(dummySynapse->second<=0){
-                for(size_t remoteSynapse=0;remoteSynapse<SegmentAddress->Synapse.size();++remoteSynapse ){
-                    if(dummySynapse->first==SegmentAddress->Synapse[remoteSynapse].first){
-                        SegmentAddress->Synapse.erase(SegmentAddress->Synapse.begin()+remoteSynapse);
-                        break;
+    for(cell*& remote_cell: active_cells){
+        for(auto dummySynapse: SegmentAddress->Synapse){
+            if(remote_cell==dummySynapse.first){
+                if(success==true){
+                    dummySynapse.second= std::min(static_cast<double>(1),dummySynapse.second+SegmentAddress->LearnIncrement);
+                    if(SegmentAddress->Synapse.size()<synapses_per_segment){
+                        SegmentAddress->BlindSynapseAdding(SegmentAddress->ActivationCountdown);
                     }
+                }else{
+                    dummySynapse.second= dummySynapse.second- SegmentAddress->LearnIncrement;
+                    if(dummySynapse.second<=0){
+                        for(size_t remoteSynapse=0;remoteSynapse<SegmentAddress->Synapse.size();++remoteSynapse ){
+                            if(dummySynapse.first==SegmentAddress->Synapse[remoteSynapse].first){
+                                SegmentAddress->Synapse.erase(SegmentAddress->Synapse.begin()+remoteSynapse);
+                                break;
+                            }
+                        }
+                    }
+
                 }
+                break;
             }
         }
     }
-    //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
 }
 
@@ -476,7 +495,7 @@ void layer::CellExpectInitiator( void ){
                 //first element of ActiveSegments[1] is most active segment
                 //this segment is supposed to learn
                 CellUpdateList.push_back(&dummycell);
-                std::vector<std::pair<cell*,double>*> tempactive_cells=dummycell.ActiveSegments[0][0]->GetActiveCells();
+                std::vector<cell*> tempactive_cells=dummycell.ActiveSegments[0][0]->GetActiveCells();
                 dummycell.SegmentUpdateList.emplace_back(dummycell.ActiveSegments[0][0],tempactive_cells);
 
                 if(dummycell.expect[1]==false){
@@ -614,30 +633,26 @@ void layer::forgetting(){
 
     //segments that hardly ever predict correctly will drop below synapses_per_segment/2
     //synapses and deleted completely
-    /*
+
     for(column& DummyColumn: ColumnList){
         for(cell& DummyCell: DummyColumn.CellList){
             for(size_t DummySegmentIndex=0;DummySegmentIndex<DummyCell.SegList.size();){
                 for(size_t SynIndex=0;SynIndex<DummyCell.SegList[DummySegmentIndex].Synapse.size();){
                     DummyCell.SegList[DummySegmentIndex].Synapse[SynIndex].second-=Forgetfulness;
                     if(DummyCell.SegList[DummySegmentIndex].Synapse[SynIndex].second<=0){
-                      //->  DummyCell.SegList[DummySegmentIndex].Synapse.erase(DummyCell.SegList[DummySegmentIndex].Synapse.begin()+SynIndex);
+                        DummyCell.SegList[DummySegmentIndex].Synapse.erase(DummyCell.SegList[DummySegmentIndex].Synapse.begin()+SynIndex);
                     }else{
                         ++SynIndex;
                     }
                 }// #####################################################
                 if(DummyCell.SegList[DummySegmentIndex].Synapse.size()<synapses_per_segment/2 ){
-                    std::vector<segment> dummydeque;
-                    dummydeque.emplace_back(DummyCell,3);
-                    //->dummydeque.erase(dummydeque.begin());
-                    DummyCell.SegList.begin();
-                    //DummyCell.SegList.erase(DummyCell.SegList.begin()+DummySegmentIndex);
+                    DummyCell.SegList.erase(DummyCell.SegList.begin()+DummySegmentIndex);
                 }else{
                     ++DummySegmentIndex;
                 }
             }
         }
-    }*/
+    }
 }
 
 
@@ -1048,9 +1063,7 @@ void brain::update(){
  * cell::ActiveSegments ←
  * cell::active ←
  * cell::expect ←
- * cell::learn ←
  * segment::Synapse ←
- * segment::EndOfSeq!!
  *
  * Do all layers in parallel, i.e. do the layers one after another
  * but don't implement updates until after the last layer.
