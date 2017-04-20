@@ -25,8 +25,7 @@ class debughelper;
  *
  *
  *
- * fix first:       problems occur when updating segments, because there may be pointer to segments
- *                      , which don't exist anymore. Probably there still lurk other problems around.
+ * fix first:    fix forgetting    Probably there still lurk other problems around.
  *
  *fix layer::forgetting() ->uses segment::operator= , which we don't want and made thrownig errorr
  *
