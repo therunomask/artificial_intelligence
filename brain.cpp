@@ -115,7 +115,7 @@ brain::brain(size_t Number_of_Levels, size_t Number_of_Column_per_Layer, size_t 
       HighestLayer(top_layer(Number_of_Column_per_Layer,Number_of_Cells_per_Column,*this)),
       AllLevels(std::vector<layer*>()),
       time(0),
-      Martin_Luther(),
+      Martin_Luther(*this),
       max_activation_counter(5),
       max_activation_counter_change(false)
 {
@@ -341,7 +341,7 @@ void layer::ActiveColumnUpdater(void){
 
 
     //debughelper statistics
-    MotherBrain.Martin_Luther.activation_column[finding_oneself()].push_back(TempActColumns.size());
+    //MotherBrain.Martin_Luther.activation_column[finding_oneself()].push_back(TempActColumns.size());
 
 
 }
@@ -373,7 +373,7 @@ void layer::ConnectedSynapsesUpdate(void){
         }
         //pdummyColumn->who_am_I();
     }
-    MotherBrain.Martin_Luther.success_column[finding_oneself()].push_back(static_cast<double>(success)/static_cast<double>(success+failure));
+    //MotherBrain.Martin_Luther.success_column[finding_oneself()].push_back(static_cast<double>(success)/static_cast<double>(success+failure));
 
 }
 double layer::ActivityLogUpdateFindMaxActivity(void){
@@ -523,7 +523,7 @@ void layer::CellExpectInitiator( void ){
 
 void layer::CellUpdater(void){
     //debughelper statistics
-    MotherBrain.Martin_Luther.activation_cell[finding_oneself()].push_back(static_cast<double>(PendingActivity.size())/(cells_per_column*pillars_per_layer));
+    //MotherBrain.Martin_Luther.activation_cell[finding_oneself()].push_back(static_cast<double>(PendingActivity.size())/(cells_per_column*pillars_per_layer));
 
 
     CellActivityList=std::vector<cell*>();
@@ -638,15 +638,35 @@ void layer::forgetting(){
         for(cell& DummyCell: DummyColumn.CellList){
             for(size_t DummySegmentIndex=0;DummySegmentIndex<DummyCell.SegList.size();){
                 for(size_t SynIndex=0;SynIndex<DummyCell.SegList[DummySegmentIndex].Synapse.size();){
+                    //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
                     DummyCell.SegList[DummySegmentIndex].Synapse[SynIndex].second-=Forgetfulness;
+                    //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
                     if(DummyCell.SegList[DummySegmentIndex].Synapse[SynIndex].second<=0){
+                        //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
                         DummyCell.SegList[DummySegmentIndex].Synapse.erase(DummyCell.SegList[DummySegmentIndex].Synapse.begin()+SynIndex);
+                        //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
+                        throw std::invalid_argument("deleted a synapse\n");
                     }else{
                         ++SynIndex;
                     }
                 }// #####################################################
+                //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
                 if(DummyCell.SegList[DummySegmentIndex].Synapse.size()<synapses_per_segment/2 ){
-                    DummyCell.SegList.erase(DummyCell.SegList.begin()+DummySegmentIndex);
+                    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+                    std::deque<segment>::iterator karl=DummyCell.SegList.begin()+DummySegmentIndex;
+                    std::cout<<&(*(karl))<<"length of Seglist is "<<DummyCell.SegList.size()<<" current position "<<DummySegmentIndex<<std::endl;
+                    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
+                    DummyCell.SegList.erase(DummyCell.SegList.begin()+DummySegmentIndex-5);
+
+                    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
+                    throw std::invalid_argument("deleted a segment\n");
                 }else{
                     ++DummySegmentIndex;
                 }
@@ -971,10 +991,15 @@ void cell::who_am_I(void){
     MotherColumn.MotherLayer.MotherBrain.Martin_Luther<<" of layer "<<MotherColumn.MotherLayer.finding_oneself()<<std::endl;
 }
 size_t segment::finding_oneself(){
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
     for(size_t i=0;i<MotherCell.SegList.size();++i){
         if(&MotherCell.SegList[i]==this){
+
             return i;
+
         }
+
     }
     throw std::invalid_argument("segment got lost finding itself \n");
 
@@ -983,13 +1008,14 @@ void segment::who_am_I(void){
     MotherCell.MotherColumn.MotherLayer.MotherBrain.Martin_Luther<<"I am segment with activationcountdown "<<ActivationCountdown<<", "<<finding_oneself()<<" of cell "<<MotherCell.finding_oneself()<<" of column "<<MotherCell.MotherColumn.finding_oneself()<<" of layer "<<MotherCell.MotherColumn.MotherLayer.finding_oneself()<<std::endl;
 }
 
-debughelper::debughelper(void):
+debughelper::debughelper(brain& BrainToBelongTo):
     success_column(std::vector<std::vector<double>>(layers_per_brain,std::vector<double>())),
     success_cell(std::vector<std::vector<double>>(layers_per_brain,std::vector<double>())),
     activation_column(std::vector<std::vector<double>>(layers_per_brain,std::vector<double>())),
     activation_cell(std::vector<std::vector<double>>(layers_per_brain,std::vector<double>())),
     avg_synapses_per_segment(std::vector<std::vector<double>>(layers_per_brain,std::vector<double>())),
-    Log("BrainLog.txt")
+    Log("BrainLog.txt"),
+    Motherbrain(BrainToBelongTo)
 {
     Log<<"oeffne Logfile\n";
     Log.flush();
@@ -1043,6 +1069,33 @@ void debughelper::tell(std::vector<std::vector<double> >* dummyvec){
     }
 }
 
+size_t debughelper::count_All_Segments(void){
+    size_t allSegments=0;
+    for(layer*& dummyLayer:Motherbrain.AllLevels){
+        for(column& dummyColumn:dummyLayer->ColumnList){
+            for(cell& dummyCell: dummyColumn.CellList){
+                allSegments+=dummyCell.SegList.size();
+            }
+        }
+    }
+    return allSegments;
+}
+
+size_t debughelper::count_All_Synapses(void){
+    size_t allSynapses=0;
+    for(layer*& dummyLayer:Motherbrain.AllLevels){
+        for(column& dummyColumn:dummyLayer->ColumnList){
+            for(cell& dummyCell: dummyColumn.CellList){
+                for(segment& dummySegment: dummyCell.SegList){
+                    allSynapses+=dummySegment.Synapse.size();
+                }
+            }
+        }
+    }
+    return allSynapses;
+}
+
+
 
 //end of debugging functions
 
@@ -1069,8 +1122,13 @@ void brain::update(){
  * but don't implement updates until after the last layer.
 
 */    
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
     Martin_Luther<<"it is now "<<time<<" since big bang\n";
     //inventory();
+    Martin_Luther<<"there are "<<Martin_Luther.count_All_Segments()<<" Segments\n";
+    Martin_Luther<<"there are "<<Martin_Luther.count_All_Synapses()<<" Synapses\n";
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
     {//create Threads only locally in here
         if(multithreadding==true){
@@ -1090,8 +1148,8 @@ void brain::update(){
         }
 
     }//end of the first generation of threads
-    //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
     if(max_activation_counter_change==true){
         ++max_activation_counter;
@@ -1117,7 +1175,7 @@ void brain::update(){
 
 
     }
-    //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
     //needs an extra loop due to interference
     for(layer*& DummyLayer:AllLevels){
@@ -1128,9 +1186,15 @@ void brain::update(){
                 DummyCell.UpdateActiveSegments();
             }
         }
+        std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+
+        DummyLayer->forgetting();
+
+        std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
         DummyLayer->Three_CellListUpdater();
     }
+    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
     //update inner clock
     ++time;

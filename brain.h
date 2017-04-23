@@ -26,6 +26,10 @@ class debughelper;
  *
  *
  * fix first:    fix forgetting    Probably there still lurk other problems around.
+ *               in forgetting std::deque<segment> asfd.erase() somehow triggers finding oneself
+ *                  of segments and then quits the program.
+ *
+ * replace deque with list or forward_list
  *
  *fix layer::forgetting() ->uses segment::operator= , which we don't want and made thrownig errorr
  *
@@ -373,7 +377,7 @@ public:
 class debughelper{
 private:
 public:
-    debughelper(void);
+    debughelper(brain &BrainToBelongTo);
     ~debughelper(void);
     std::vector<std::vector<double>> success_column;
     std::vector<std::vector<double>> success_cell;
@@ -381,11 +385,14 @@ public:
     std::vector<std::vector<double>> activation_cell;
     std::vector<std::vector<double>> avg_synapses_per_segment;
     std::ofstream Log;
+    brain& Motherbrain;
 
     template<typename T>
     std::ofstream& operator<< ( T message);
     //std::ofstream& operator<< ( double bla);
     void tell(std::vector<std::vector<double> > *dummyvec);
+    size_t count_All_Segments(void);
+    size_t count_All_Synapses(void);
 
 };
 
