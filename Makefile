@@ -5,7 +5,8 @@
 
 # Compilers and flags:
 CC = g++
-CFLAGS = -O3 -std=c++14 -m64 -march=native -mtune=native -pthread
+CFLAGS = -std=c++14 -ggdb -m64 -march=native -mtune=native -pthread
+OPTFLAG= -O3
 LDFLAGS = 
 INCLUDES = brain.o
 

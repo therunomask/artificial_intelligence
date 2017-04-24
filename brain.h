@@ -23,7 +23,7 @@ class debughelper;
 //SegmentUpdateList -> saves active Cells; which Segment; timer
 /*
  *
- *
+ * see breakpoints segment::operator= may be problematic. SegList.erase() does not work as it should
  *
  * fix first:    fix forgetting    Probably there still lurk other problems around.
  *               in forgetting std::deque<segment> asfd.erase() somehow triggers finding oneself
@@ -159,11 +159,7 @@ public:
     segment(cell& Cell_to_belong_to, size_t TempActivationCountdown);
     segment(const segment& dummysegment);
     segment operator=(const segment& dummysegment);
-    ~segment(void){
-        who_am_I();
-        std::cout<<"and I will now be destroyed\n";
-        throw std::invalid_argument("segment was deleted\n");
-    }
+    //~segment(void);
 
     cell& MotherCell;                            //3*activeCollumns per layer
     static constexpr double MinSynapseWeightActivity=Minimal_sum_of_synapseweights_for_activity;
@@ -177,12 +173,7 @@ public:
     static constexpr double LearnIncrement= Learning_Increment;//possibly change to harder
                      // punishment for larger segments
 
-    void AddCell( cell*  const newcell){//adds new cell to segment with
-            //standard connectedness close to disconnection
-        double con=InitCon;
-        Synapse.push_back(std::pair <cell*,double>(newcell,con));
-        //CellCon.push_back(InitCon);
-    }
+    void AddCell( cell*  const newcell);
 
 
 

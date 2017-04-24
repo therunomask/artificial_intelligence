@@ -277,13 +277,16 @@ segment::segment(const segment &dummysegment):
 
 }
 
-segment segment::operator =(const segment& dummysegment){
-    //debug!!
-    std::cout<<"this one was operator='d\n";
+segment segment::operator=(const segment& dummysegment){
+
     segment SegmentToReturn(dummysegment);
     return SegmentToReturn;
 
+
 }
+
+//segment::~segment(void){
+//}
 
 std::vector<cell*>  segment::GetActiveCells(){
     std::vector<cell*> tempactive_cells;
@@ -295,6 +298,13 @@ std::vector<cell*>  segment::GetActiveCells(){
     return tempactive_cells;
 }
 
+inline void segment::AddCell( cell*  const newcell){
+    //adds new cell to segment with
+    //standard connectedness close to disconnection
+    double con=InitCon;
+    Synapse.push_back(std::pair <cell*,double>(newcell,con));
+    //CellCon.push_back(InitCon);
+}
 
 void layer::FindBestColumns(void){
     //finding #DesiredLocalActivity highest overlapping columns
@@ -367,11 +377,10 @@ void layer::ConnectedSynapsesUpdate(void){
                 //
                 ++failure;
             }            
-            //MotherBrain.Martin_Luther<<dummy_connected_synapse.second<<" is the current connectedness";
-            //MotherBrain.Martin_Luther<<"at time "<<MotherBrain.time<<std::endl;
+
 
         }
-        //pdummyColumn->who_am_I();
+
     }
     //MotherBrain.Martin_Luther.success_column[finding_oneself()].push_back(static_cast<double>(success)/static_cast<double>(success+failure));
 
@@ -428,7 +437,6 @@ void layer::Do_SegmentUpdate(){
     //and delete element of CellUpdateList if there are no more pending updates for this cell
     for(std::vector<cell*>::iterator itdummycell=CellUpdateList.begin();itdummycell!=CellUpdateList.end();){
         for(std::vector<SegmentUpdate>::iterator itDummyUpdate=(*itdummycell)->SegmentUpdateList.begin();itDummyUpdate!=(*itdummycell)->SegmentUpdateList.end();){
-           // std::cout<<"pointer position is "<<std::distance((*itdummycell)->SegmentUpdateList.begin(), itDummyUpdate)<<", length of vector is "<<(*itdummycell)->SegmentUpdateList.size()<<std::endl);
             if(itDummyUpdate->timer>0){
                 --itDummyUpdate->timer;
                 ++itDummyUpdate;
@@ -638,35 +646,28 @@ void layer::forgetting(){
         for(cell& DummyCell: DummyColumn.CellList){
             for(size_t DummySegmentIndex=0;DummySegmentIndex<DummyCell.SegList.size();){
                 for(size_t SynIndex=0;SynIndex<DummyCell.SegList[DummySegmentIndex].Synapse.size();){
-                    //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
-
                     DummyCell.SegList[DummySegmentIndex].Synapse[SynIndex].second-=Forgetfulness;
-                    //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
                     if(DummyCell.SegList[DummySegmentIndex].Synapse[SynIndex].second<=0){
-                        //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
                         DummyCell.SegList[DummySegmentIndex].Synapse.erase(DummyCell.SegList[DummySegmentIndex].Synapse.begin()+SynIndex);
-                        //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
-                        throw std::invalid_argument("deleted a synapse\n");
                     }else{
                         ++SynIndex;
                     }
-                }// #####################################################
-                //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+                }
 
                 if(DummyCell.SegList[DummySegmentIndex].Synapse.size()<synapses_per_segment/2 ){
-                    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
-                    std::deque<segment>::iterator karl=DummyCell.SegList.begin()+DummySegmentIndex;
-                    std::cout<<&(*(karl))<<"length of Seglist is "<<DummyCell.SegList.size()<<" current position "<<DummySegmentIndex<<std::endl;
-                    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+                    if(MotherBrain.time>=2){
 
-                    DummyCell.SegList.erase(DummyCell.SegList.begin()+DummySegmentIndex-5);
+                        std::cout<<"it is at least 2 o'clock\n";
+                    }
 
-                    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+                    DummyCell.SegList.erase(DummyCell.SegList.begin()+DummySegmentIndex);
 
-                    throw std::invalid_argument("deleted a segment\n");
+                    if(MotherBrain.time>=2){
+                        std::cout<<"it is at least 2 o'clock\n";
+                    }
                 }else{
                     ++DummySegmentIndex;
                 }
