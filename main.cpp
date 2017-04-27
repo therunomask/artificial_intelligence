@@ -13,8 +13,6 @@ std::vector<bool> senses(size_t time){
     output[(time+1)%200]=true;
     output[(time+2)%200]=true;
     output[(time+3)%200]=true;
-
-
     return output;
 }
 
@@ -25,17 +23,13 @@ int main(int argc, char *argv[])
 
     clock_t timer;
     size_t End=1000;
-    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
     brain joseph(layers_per_brain,pillars_per_layer,cells_per_column, senses);
 
-    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
     timer=clock();
     for(size_t t=0;t<End;++t){
-        std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
         joseph.update();
-        std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
         std::cout<<"it is now "<<joseph.time<<" o'clock"<<std::endl;
     }
     timer= clock() - timer;

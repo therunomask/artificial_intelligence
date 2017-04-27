@@ -9,7 +9,7 @@
 #include <typeinfo>
 #include <stdexcept>
 #include <thread>
-
+#include <assert.h>
 
 void BrainConstructionHelper(brain& Init_brain,size_t Number_of_Levels, size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column/*,std::vector<bool>(*sensoryinput)(size_t time)*/){
 
@@ -277,11 +277,15 @@ segment::segment(const segment &dummysegment):
 
 }
 
-segment segment::operator=(const segment& dummysegment){
-
-    segment SegmentToReturn(dummysegment);
-    return SegmentToReturn;
-
+void segment::operator=(const segment& rhsSegment){
+    //we only want this to be used in forgetting(). So only in erasing
+    //segments from the same cell.
+    if(&MotherCell!=&rhsSegment.MotherCell){
+        std::cout<<"segments belong to different cells! Abort!\n";
+    }
+    assert(&MotherCell==&rhsSegment.MotherCell);
+    this->Synapse=rhsSegment.Synapse;
+    this->ActivationCountdown=rhsSegment.ActivationCountdown;
 
 }
 
@@ -382,7 +386,7 @@ void layer::ConnectedSynapsesUpdate(void){
         }
 
     }
-    //MotherBrain.Martin_Luther.success_column[finding_oneself()].push_back(static_cast<double>(success)/static_cast<double>(success+failure));
+    MotherBrain.Martin_Luther.success_column[finding_oneself()].push_back(static_cast<double>(success)/static_cast<double>(success+failure));
 
 }
 double layer::ActivityLogUpdateFindMaxActivity(void){
@@ -435,22 +439,58 @@ void layer::Do_SegmentUpdate(){
     //if timer drops to zero or below implement pending update
     //also simultaneously delete used SegmentUpdate objects from the vector
     //and delete element of CellUpdateList if there are no more pending updates for this cell
+
+    if(MotherBrain.time>50){
+        std::cout<<"bla 2.4.1\n";
+    }
     for(std::vector<cell*>::iterator itdummycell=CellUpdateList.begin();itdummycell!=CellUpdateList.end();){
         for(std::vector<SegmentUpdate>::iterator itDummyUpdate=(*itdummycell)->SegmentUpdateList.begin();itDummyUpdate!=(*itdummycell)->SegmentUpdateList.end();){
+            if(MotherBrain.time>50){
+                std::cout<<"bla 2.4.9\n";
+            }
             if(itDummyUpdate->timer>0){
+                if(MotherBrain.time>50){
+                    std::cout<<"bla 2.4.10\n";
+                }
                 --itDummyUpdate->timer;
                 ++itDummyUpdate;
+                if(MotherBrain.time>50){
+                    std::cout<<"bla 2.4.11\n";
+                }
             }else{
+                if(MotherBrain.time>50){
+                    std::cout<<"bla 2.4.12\n";
+                }
                 itDummyUpdate->AdaptingSynapses((*itdummycell)->active[0]);
+                if(MotherBrain.time>50){
+                    std::cout<<"bla 2.4.2\n";
+                }
                 (*itdummycell)->SegmentUpdateList.erase(itDummyUpdate);
+                if(MotherBrain.time>50){
+                    std::cout<<"bla 2.4.3\n";
+                }
             }
         }
         if((*itdummycell)->SegmentUpdateList.size()==0){
-
+            if(MotherBrain.time>50){
+                std::cout<<"bla 2.4.4\n";
+            }
             CellUpdateList.erase(itdummycell);
+            if(MotherBrain.time>50){
+                std::cout<<"bla 2.4.5\n";
+            }
         }else{
+            if(MotherBrain.time>50){
+                std::cout<<"bla 2.4.6\n";
+            }
             ++itdummycell;
+            if(MotherBrain.time>50){
+                std::cout<<"bla 2.4.7\n";
+            }
         }
+    }
+    if(MotherBrain.time>50){
+        std::cout<<"bla 2.4.8\n";
     }
 }
 
@@ -459,8 +499,15 @@ void SegmentUpdate::AdaptingSynapses(bool success){
     //or strengthen them.
     //if connection strength drops to zero or below we remove the corresponding synapse from the
     //segment.
+    std::cout<<"bla 2.4.12.01\n";
+    if(SegmentAddress->MotherCell.MotherColumn.MotherLayer.MotherBrain.time>50){
+        std::cout<<"bla 2.4.12.1\n";
+    }
     for(cell*& remote_cell: active_cells){
         for(auto dummySynapse: SegmentAddress->Synapse){
+            if(SegmentAddress->MotherCell.MotherColumn.MotherLayer.MotherBrain.time>50){
+                std::cout<<"bla 2.4.9\n";
+            }
             if(remote_cell==dummySynapse.first){
                 if(success==true){
                     dummySynapse.second= std::min(static_cast<double>(1),dummySynapse.second+SegmentAddress->LearnIncrement);
@@ -482,6 +529,9 @@ void SegmentUpdate::AdaptingSynapses(bool success){
                 break;
             }
         }
+    }
+    if(SegmentAddress->MotherCell.MotherColumn.MotherLayer.MotherBrain.time>50){
+        std::cout<<"bla 2.4.12.?\n";
     }
 
 }
@@ -646,8 +696,9 @@ void layer::forgetting(){
         for(cell& DummyCell: DummyColumn.CellList){
             for(size_t DummySegmentIndex=0;DummySegmentIndex<DummyCell.SegList.size();){
                 for(size_t SynIndex=0;SynIndex<DummyCell.SegList[DummySegmentIndex].Synapse.size();){
-                    DummyCell.SegList[DummySegmentIndex].Synapse[SynIndex].second-=Forgetfulness;
-
+                    if(DummyCell.SegList[DummySegmentIndex].Synapse[SynIndex].second<1){
+                        DummyCell.SegList[DummySegmentIndex].Synapse[SynIndex].second-=Forgetfulness;
+                    }
                     if(DummyCell.SegList[DummySegmentIndex].Synapse[SynIndex].second<=0){
 
                         DummyCell.SegList[DummySegmentIndex].Synapse.erase(DummyCell.SegList[DummySegmentIndex].Synapse.begin()+SynIndex);
@@ -658,16 +709,9 @@ void layer::forgetting(){
                 }
 
                 if(DummyCell.SegList[DummySegmentIndex].Synapse.size()<synapses_per_segment/2 ){
-                    if(MotherBrain.time>=2){
-
-                        std::cout<<"it is at least 2 o'clock\n";
-                    }
 
                     DummyCell.SegList.erase(DummyCell.SegList.begin()+DummySegmentIndex);
 
-                    if(MotherBrain.time>=2){
-                        std::cout<<"it is at least 2 o'clock\n";
-                    }
                 }else{
                     ++DummySegmentIndex;
                 }
@@ -839,25 +883,30 @@ void UpdateInitialiser(layer* DummyLayer){
 void ThreadUpdater(layer* DummyLayer){
     //execute pending updates for DummyLayer
 
-    //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
-
+    if(DummyLayer->MotherBrain.time>50){
+        std::cout<<"bla 2.1\n";
+    }
     DummyLayer->ActiveColumnUpdater();
 
-    //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
-
+    if(DummyLayer->MotherBrain.time>50){
+        std::cout<<"bla 2.2\n";
+    }
     if(DummyLayer!=&DummyLayer->MotherBrain.LowestLayer){
         DummyLayer->ConnectedSynapsesUpdate();
     }
 
-    //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
-
+    if(DummyLayer->MotherBrain.time>50){
+        std::cout<<"bla 2.3\n";
+    }
     DummyLayer->CellUpdater();
 
-    //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
-
+    if(DummyLayer->MotherBrain.time>50){
+        std::cout<<"bla 2.4\n";
+    }
     DummyLayer->Do_SegmentUpdate();
-    //std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
-
+    if(DummyLayer->MotherBrain.time>50){
+        std::cout<<"bla 2.5\n";
+    }
 }
 
 
@@ -1055,17 +1104,13 @@ void debughelper::tell(std::vector<std::vector<double> >* dummyvec){
 
     }
 
-    //std::cout<<"This is the debughelper speaking, taking the average of "<<name<<".\n";
 
     for(size_t l=0;l<dummyvec->size();++l){
-        //std::cout<<"In layer "<<l<<" the statistics is. \n";
         for(size_t t=0;t<(*dummyvec)[l].size()/100;++t){
-            //std::cout<<" average number at time "<<t<<" is ";
             double average=0;
             for(size_t u=0;u<100;++u){
                 average+=(*dummyvec)[l][100*t+u];
             }
-            //std::cout<<average/100<<std::endl;
         }
     }
 }
@@ -1123,13 +1168,9 @@ void brain::update(){
  * but don't implement updates until after the last layer.
 
 */    
-    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
-
-    Martin_Luther<<"it is now "<<time<<" since big bang\n";
-    //inventory();
-    Martin_Luther<<"there are "<<Martin_Luther.count_All_Segments()<<" Segments\n";
-    Martin_Luther<<"there are "<<Martin_Luther.count_All_Synapses()<<" Synapses\n";
-    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+    if(time>50){
+        std::cout<<"bla 1\n";
+    }
 
     {//create Threads only locally in here
         if(multithreadding==true){
@@ -1150,8 +1191,9 @@ void brain::update(){
 
     }//end of the first generation of threads
 
-    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
-
+    if(time>50){
+        std::cout<<"bla 2\n";
+    }
     if(max_activation_counter_change==true){
         ++max_activation_counter;
         max_activation_counter_change=false;
@@ -1176,8 +1218,9 @@ void brain::update(){
 
 
     }
-    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
-
+    if(time>50){
+        std::cout<<"bla 3\n";
+    }
     //needs an extra loop due to interference
     for(layer*& DummyLayer:AllLevels){
 
@@ -1187,15 +1230,17 @@ void brain::update(){
                 DummyCell.UpdateActiveSegments();
             }
         }
-        std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+        if(time>50){
+            std::cout<<"bla 4\n";
+        }
 
         DummyLayer->forgetting();
-
-        std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
+        if(time>50){
+            std::cout<<"bla 5\n";
+        }
 
         DummyLayer->Three_CellListUpdater();
     }
-    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
     //update inner clock
     ++time;

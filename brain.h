@@ -23,19 +23,11 @@ class debughelper;
 //SegmentUpdateList -> saves active Cells; which Segment; timer
 /*
  *
- * see breakpoints segment::operator= may be problematic. SegList.erase() does not work as it should
- *
- * fix first:    fix forgetting    Probably there still lurk other problems around.
- *               in forgetting std::deque<segment> asfd.erase() somehow triggers finding oneself
- *                  of segments and then quits the program.
+ * put segmentUpdate into Segment instead of into cells; problems arise, because we
+ * delete segments, so pointer in segmentUpdate are no longer accurate.
  *
  * replace deque with list or forward_list
  *
- *fix layer::forgetting() ->uses segment::operator= , which we don't want and made thrownig errorr
- *
- *
- *in brain constructer: initiate stuff like threeCellActivityList randomly
- * instead of empty
  *
  * change boosting, perfect matching should be stable
  *
@@ -158,7 +150,7 @@ private:
 public:
     segment(cell& Cell_to_belong_to, size_t TempActivationCountdown);
     segment(const segment& dummysegment);
-    segment operator=(const segment& dummysegment);
+    void operator=(const segment& dummysegment);
     //~segment(void);
 
     cell& MotherCell;                            //3*activeCollumns per layer
