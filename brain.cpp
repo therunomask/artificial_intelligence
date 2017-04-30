@@ -220,10 +220,8 @@ cell::cell(column& Column_to_belong_to)
     :
       MotherColumn(Column_to_belong_to),
       SegList(std::deque<segment>()),
-      ActiveSegments( std::vector<std::vector<segment*>>(2,*(new std::vector<segment*>))),
       active(2,false),
-      expect(2,false),
-      SegmentUpdateList(std::vector<SegmentUpdate>())
+      expect(2,false)
 {
     //SegList.reserve(synapses_per_segment);
     for(size_t index=0; index<segments_per_cell;++index){
@@ -238,10 +236,9 @@ cell::cell(const cell& dummycell):
     throw std::invalid_argument("Don't copy cells! \n");
 }
 
-SegmentUpdate::SegmentUpdate(segment*SegmentAddress, std::vector<cell*> active_cells):
-    SegmentAddress(SegmentAddress),
+SegmentUpdate::SegmentUpdate(std::vector<cell*> active_cells, size_t countdown):
     active_cells(active_cells),
-    timer(SegmentAddress->ActivationCountdown)
+    timer(countdown)
 {
 
 }
@@ -250,30 +247,17 @@ segment::segment(cell& Cell_to_belong_to, size_t TempActivationCountdown)
     :
       MotherCell(Cell_to_belong_to),
       Synapse(std::deque< std::pair <cell*,double>>() ),//still to be initialized afterward
-      ActivationCountdown(TempActivationCountdown)
+      ActivationCountdown(TempActivationCountdown),
+      SegmentUpdateList(std::vector<SegmentUpdate>())
 {
 
 }
 segment::segment(const segment &dummysegment):
     MotherCell(dummysegment.MotherCell),
     Synapse(dummysegment.Synapse),
-    ActivationCountdown(dummysegment.ActivationCountdown)
+    ActivationCountdown(dummysegment.ActivationCountdown),
+    SegmentUpdateList(dummysegment.SegmentUpdateList)
 {
-    //debug!!
-    std::cout<<"we are copying segments!!\n";
-
-    for(SegmentUpdate& dummyupdate:dummysegment.MotherCell.SegmentUpdateList){
-        if(dummyupdate.SegmentAddress==&dummysegment){
-            dummyupdate.SegmentAddress=this;
-        }
-    }
-    for(std::vector<segment*>& dummyvector:dummysegment.MotherCell.ActiveSegments){
-        for(segment*& SegmentToAlter:dummyvector ){
-            if(SegmentToAlter==&dummysegment){
-                SegmentToAlter=this;
-            }
-        }
-    }
 
 }
 
@@ -444,49 +428,36 @@ void layer::Do_SegmentUpdate(){
         std::cout<<"bla 2.4.1\n";
     }
     for(std::vector<cell*>::iterator itdummycell=CellUpdateList.begin();itdummycell!=CellUpdateList.end();){
-        for(std::vector<SegmentUpdate>::iterator itDummyUpdate=(*itdummycell)->SegmentUpdateList.begin();itDummyUpdate!=(*itdummycell)->SegmentUpdateList.end();){
-            if(MotherBrain.time>50){
-                std::cout<<"bla 2.4.9\n";
-            }
-            if(itDummyUpdate->timer>0){
-                if(MotherBrain.time>50){
-                    std::cout<<"bla 2.4.10\n";
-                }
-                --itDummyUpdate->timer;
-                ++itDummyUpdate;
-                if(MotherBrain.time>50){
-                    std::cout<<"bla 2.4.11\n";
-                }
-            }else{
-                if(MotherBrain.time>50){
-                    std::cout<<"bla 2.4.12\n";
-                }
-                itDummyUpdate->AdaptingSynapses((*itdummycell)->active[0]);
-                if(MotherBrain.time>50){
-                    std::cout<<"bla 2.4.2\n";
-                }
-                (*itdummycell)->SegmentUpdateList.erase(itDummyUpdate);
-                if(MotherBrain.time>50){
-                    std::cout<<"bla 2.4.3\n";
+        bool StayInCellUpdateList=false;
+        for(segment& dummysegment:(*itdummycell)->SegList){
+            for(std::vector<SegmentUpdate>::iterator itDummyUpdate=dummysegment.SegmentUpdateList.begin();itDummyUpdate!=dummysegment.SegmentUpdateList.end();){
+
+                if(itDummyUpdate->timer>0){
+
+                    --itDummyUpdate->timer;
+                    ++itDummyUpdate;
+
+                }else{
+
+                    dummysegment.AdaptingSynapses((*itdummycell)->active[0],*itDummyUpdate);
+
+                    dummysegment.SegmentUpdateList.erase(itDummyUpdate);
+
                 }
             }
+
+            if(dummysegment.SegmentUpdateList.size()!=0){
+               StayInCellUpdateList=true;
+            }
+
         }
-        if((*itdummycell)->SegmentUpdateList.size()==0){
-            if(MotherBrain.time>50){
-                std::cout<<"bla 2.4.4\n";
-            }
+        if(StayInCellUpdateList==false){
             CellUpdateList.erase(itdummycell);
-            if(MotherBrain.time>50){
-                std::cout<<"bla 2.4.5\n";
-            }
+
         }else{
-            if(MotherBrain.time>50){
-                std::cout<<"bla 2.4.6\n";
-            }
+
             ++itdummycell;
-            if(MotherBrain.time>50){
-                std::cout<<"bla 2.4.7\n";
-            }
+
         }
     }
     if(MotherBrain.time>50){
@@ -494,32 +465,28 @@ void layer::Do_SegmentUpdate(){
     }
 }
 
-void SegmentUpdate::AdaptingSynapses(bool success){
+void segment::AdaptingSynapses(bool success, SegmentUpdate& ToBeUpdated){
     //depending on success either we punish all the connections to (previously) active cells
     //or strengthen them.
     //if connection strength drops to zero or below we remove the corresponding synapse from the
     //segment.
     std::cout<<"bla 2.4.12.01\n";
-    if(SegmentAddress->MotherCell.MotherColumn.MotherLayer.MotherBrain.time>50){
-        std::cout<<"bla 2.4.12.1\n";
-    }
-    for(cell*& remote_cell: active_cells){
-        for(auto dummySynapse: SegmentAddress->Synapse){
-            if(SegmentAddress->MotherCell.MotherColumn.MotherLayer.MotherBrain.time>50){
-                std::cout<<"bla 2.4.9\n";
-            }
+
+    for(cell*& remote_cell: ToBeUpdated.active_cells){
+        for(auto dummySynapse:Synapse){
+
             if(remote_cell==dummySynapse.first){
                 if(success==true){
-                    dummySynapse.second= std::min(static_cast<double>(1),dummySynapse.second+SegmentAddress->LearnIncrement);
-                    if(SegmentAddress->Synapse.size()<synapses_per_segment){
-                        SegmentAddress->BlindSynapseAdding(SegmentAddress->ActivationCountdown);
+                    dummySynapse.second= std::min(static_cast<double>(1),dummySynapse.second+LearnIncrement);
+                    if(Synapse.size()<synapses_per_segment){
+                        BlindSynapseAdding(ActivationCountdown);
                     }
                 }else{
-                    dummySynapse.second= dummySynapse.second- SegmentAddress->LearnIncrement;
+                    dummySynapse.second= dummySynapse.second- LearnIncrement;
                     if(dummySynapse.second<=0){
-                        for(size_t remoteSynapse=0;remoteSynapse<SegmentAddress->Synapse.size();++remoteSynapse ){
-                            if(dummySynapse.first==SegmentAddress->Synapse[remoteSynapse].first){
-                                SegmentAddress->Synapse.erase(SegmentAddress->Synapse.begin()+remoteSynapse);
+                        for(size_t remoteSynapse=0;remoteSynapse<Synapse.size();++remoteSynapse ){
+                            if(dummySynapse.first==Synapse[remoteSynapse].first){
+                                Synapse.erase(Synapse.begin()+remoteSynapse);
                                 break;
                             }
                         }
@@ -530,7 +497,7 @@ void SegmentUpdate::AdaptingSynapses(bool success){
             }
         }
     }
-    if(SegmentAddress->MotherCell.MotherColumn.MotherLayer.MotherBrain.time>50){
+    if(MotherCell.MotherColumn.MotherLayer.MotherBrain.time>50){
         std::cout<<"bla 2.4.12.?\n";
     }
 
@@ -541,20 +508,21 @@ void SegmentUpdate::AdaptingSynapses(bool success){
 
 
 void layer::CellExpectInitiator( void ){
-
+//because we would like to predict one more timestep
+//, after marking an active column with an active cell with an active segment for
+   //updates, we create another segment. the new segment should predict the prediction
+    //of the old one
 
     for(column& pillars:ColumnList){
         for(cell& dummycell:pillars.CellList){
             //check whether cell currently has an active segment
-
-            if(dummycell.ActiveSegments[0].size()!=0){
+            segment* BestSegment= dummycell.BestSegmentInCell(0);
+            if(BestSegment!=NULL){
                 //cell predicts now, because of active segment
                 PendingExpectation.push_back(&dummycell);
-                //first element of ActiveSegments[1] is most active segment
                 //this segment is supposed to learn
                 CellUpdateList.push_back(&dummycell);
-                std::vector<cell*> tempactive_cells=dummycell.ActiveSegments[0][0]->GetActiveCells();
-                dummycell.SegmentUpdateList.emplace_back(dummycell.ActiveSegments[0][0],tempactive_cells);
+                BestSegment->SegmentUpdateList.emplace_back(BestSegment->GetActiveCells(),BestSegment->ActivationCountdown);
 
                 if(dummycell.expect[1]==false){
                     //if prediction is unexpected,
@@ -562,12 +530,11 @@ void layer::CellExpectInitiator( void ){
                     //timestep. Do blind synapse adding for this segment,
                     //we choose this kind of learning, because the current
                     //prediction was not predicted.
-                    if(MotherBrain.max_activation_counter==dummycell.ActiveSegments[0][0]->ActivationCountdown){
+                    if(MotherBrain.max_activation_counter==BestSegment->ActivationCountdown){
                         MotherBrain.max_activation_counter_change=true;
                     }
-                    dummycell.SegList.emplace_back(dummycell,dummycell.ActiveSegments[0][0]->ActivationCountdown+1);
+                    dummycell.SegList.emplace_back(dummycell,BestSegment->ActivationCountdown+1);
                     dummycell.SegList[dummycell.SegList.size()-1].BlindSynapseAdding(1);//1 = last timestep
-                    dummycell.SegmentUpdateList.emplace_back(&dummycell.SegList[dummycell.SegList.size()-1],tempactive_cells);
 
                 }
             }
@@ -636,7 +603,7 @@ void layer::CellLearnInitiator(void){
             //activity of the last timestep with SequenceCounter==1
             //and also leads all the expecting Cells to activation
             segment* BestSegment=DummyColumn->BestMatchingSegmentInColumnActivateCells();
-            BestSegment->MotherCell.SegmentUpdateList.emplace_back(BestSegment,BestSegment->GetActiveCells());
+            BestSegment->SegmentUpdateList.emplace_back(BestSegment->GetActiveCells(),BestSegment->ActivationCountdown);
         }
         else{
             //activity came unexpected, so we
@@ -804,49 +771,13 @@ inline void segment::BlindSynapseAdding(size_t t){
 
 }
 
-void cell::UpdateActiveSegments(void){
-    //erase last element and insert list of new active segments at the front
-    //determine which segments are active by weighted sum of active cells
-    //to wich the segments point
-
-    if(MotherColumn.MotherLayer.MotherBrain.max_activation_counter<ActiveSegments.size()){
-        ActiveSegments.pop_back();
-    }
-
-    std::vector<segment*> tempSegments;
-    size_t max=0;
-    double max_sum=0;
-    for(auto& dummysegment:SegList){
-        double sum=0;
-        for(auto& dummysynapse:dummysegment.Synapse){
-            if(dummysynapse.first->active[0]==true){
-                sum+=dummysynapse.second;
-            }
-        }
-        if(sum>=dummysegment.MinSynapseWeightActivity){
-            tempSegments.push_back(&dummysegment);
-            //remember largest element to put in front of the vector
-            if(max_sum<sum){
-                max=tempSegments.size();
-                max_sum=sum;
-            }
-
-        }
-    }
-
-    if(max>0){//something will be changed
-        std::iter_swap(tempSegments.begin(),tempSegments.begin()+max-1);
-    }
-
-    ActiveSegments.insert(ActiveSegments.begin(),tempSegments);
-}
 
 segment* cell::BestSegmentInCell(size_t t){
     //finds the Segment which matches best at time t
     //and returns a pointer to it
     double max=0;
-    segment* pBestSegment;
-    for(auto& dummysegment: SegList){
+    segment* pBestSegment=NULL;
+    for(segment& dummysegment: SegList){
         double sum=0;
         for(auto& dummysynapse: dummysegment.Synapse){
             if(dummysynapse.first->active[t]==true){
@@ -854,7 +785,7 @@ segment* cell::BestSegmentInCell(size_t t){
                 sum+=dummysynapse.second;
             }
         }
-        if(sum>=max){
+        if(sum>=max&&sum>=dummysegment.MinSynapseWeightActivity){
             max=sum;
             pBestSegment=&dummysegment;
         }
@@ -1149,25 +1080,7 @@ size_t debughelper::count_All_Synapses(void){
 
 
 void brain::update(){
-/*updates:
- * layer::actcolumns ←
- * layer::SegmentUpdateList ←
- * layer::CellActivityList ←
- * layer::Three_CellActivityList ←
- * column::Overlap_Average ←
- * column::ConnectedSynapses ←
- * column::active ←
- * column::ActivityLog ←
- * column::boosting ←
- * cell::ActiveSegments ←
- * cell::active ←
- * cell::expect ←
- * segment::Synapse ←
- *
- * Do all layers in parallel, i.e. do the layers one after another
- * but don't implement updates until after the last layer.
 
-*/    
     if(time>50){
         std::cout<<"bla 1\n";
     }
@@ -1224,12 +1137,6 @@ void brain::update(){
     //needs an extra loop due to interference
     for(layer*& DummyLayer:AllLevels){
 
-        for(column& DummyColumn : DummyLayer->ColumnList){
-            for(cell& DummyCell: DummyColumn.CellList){
-
-                DummyCell.UpdateActiveSegments();
-            }
-        }
         if(time>50){
             std::cout<<"bla 4\n";
         }

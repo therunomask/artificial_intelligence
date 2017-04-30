@@ -15,6 +15,7 @@ class LowSyn;
 class cell;
 class segment;
 class debughelper;
+class SegmentUpdate;
 
 
 
@@ -22,6 +23,15 @@ class debughelper;
 //change objects:
 //SegmentUpdateList -> saves active Cells; which Segment; timer
 /*
+ * change:
+ *  SegmentUpdateList
+ *  MotherCell
+ *  segment::AdaptingSynapses
+ *
+ *
+ *
+ *
+ *
  *
  * put segmentUpdate into Segment instead of into cells; problems arise, because we
  * delete segments, so pointer in segmentUpdate are no longer accurate.
@@ -57,6 +67,8 @@ class debughelper;
  *
  *
  *
+ *
+ * change Forgetfulness for each layer seperately
  *
 
 propagate confusion to higher layers
@@ -160,6 +172,7 @@ public:
     size_t ActivationCountdown;//1 if prediction's due to this segment
             //should activate the column in question in the next
             //timestep rather than predicting prediction of activation
+    std::vector<SegmentUpdate> SegmentUpdateList;
 
     static constexpr bool PositiveLearning= true;
     static constexpr double LearnIncrement= Learning_Increment;//possibly change to harder
@@ -176,6 +189,10 @@ public:
     //debugging after this mark
     void who_am_I(void);
     size_t finding_oneself(void);
+    void AdaptingSynapses(bool positive, SegmentUpdate& ToBeUpdated);//increase connectedness
+    //of winners, decrease connectedness
+    //of all other cells in the segment, disconnect them if
+    //connection too weak.
 };
 
 class SegmentUpdate{
@@ -184,15 +201,12 @@ public:
         //std::cout<<"deleting SegmentUpdate\n";
     }
 
-    SegmentUpdate(segment* SegmentAddress, std::vector<cell*> active_cells );
-    segment* SegmentAddress;
+    SegmentUpdate( std::vector<cell*> active_cells, size_t countdown );
+
     std::vector<cell*> active_cells;//points to adresses in segment.Synaps
     size_t timer;
 
-    void AdaptingSynapses(bool positive);//increase connectedness
-    //of winners, decrease connectedness
-    //of all other cells in the segment, disconnect them if
-    //connection too weak.
+
 };
 
 class cell{
@@ -204,13 +218,9 @@ public:
     column& MotherColumn;
     std::deque<segment> SegList;//list of segments (net of horizontal
             // connections) of this cell
-    std::vector<std::vector<segment*>> ActiveSegments;//list of active segments of
-    //    ^ maybe not use std::vector                 // last timesteps
     std::vector<bool> active;//saves activity of last few timesteps
     std::vector<bool> expect;//predicts input due to past experience and dendrite information
-    std::vector<SegmentUpdate> SegmentUpdateList;
 
-    void UpdateActiveSegments(void);
     segment* BestSegmentInCell(size_t t);
     //debugging after this mark
     void who_am_I(void);
@@ -405,24 +415,7 @@ public:
 
     void inventory(void);
     void pointerCheck(void);
-    /*updates:
-     * layer::actcolumns
-     * layer::SegmentUpdateList
-     * layer::CellActivityList
-     * layer::Three_CellActivityList
-     * column::Overlap_Average
-     * column::ConnectedSynapses
-     * column::active
-     * column::ActivityLog
-     * column::boosting
-     * cell::ActiveSegments
-     * cell::active
-     * cell::expect
-     * cell::learn
-     * segment::active
-     * segment::Synapse
-     * segment::EndOfSeq
-     * */
+
 
 };
 
