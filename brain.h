@@ -20,23 +20,11 @@ class SegmentUpdate;
 
 
 
-//change objects:
-//SegmentUpdateList -> saves active Cells; which Segment; timer
+
 /*
- * change:
- *  SegmentUpdateList
- *  MotherCell
- *  segment::AdaptingSynapses
  *
  *
  *
- *
- *
- *
- * put segmentUpdate into Segment instead of into cells; problems arise, because we
- * delete segments, so pointer in segmentUpdate are no longer accurate.
- *
- * replace deque with list or forward_list
  *
  *
  * change boosting, perfect matching should be stable
@@ -69,6 +57,7 @@ class SegmentUpdate;
  *
  *
  * change Forgetfulness for each layer seperately
+ * replace deque with list or forward_list
  *
 
 propagate confusion to higher layers
@@ -148,8 +137,8 @@ propagate confusion to higher layers
 #define Learning_Decrement_spatial                  0.01
 #define Average_Overlap_lower_boundary              0.01
 #define Homogenous_Overlap_Increment                0.1
-#define Forgetfulness                               0.01
-
+#define Forgetfulness                               Learning_Increment/600 //highly dependent on current model 3*200
+                                                                                                               // ^ frequency of input repitition
 //magic boosting function
 #define maximum_boosting                            3.0
 

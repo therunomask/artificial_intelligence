@@ -172,8 +172,6 @@ layer::layer(const layer &dummylayer):
 
     throw std::invalid_argument("Don't copy layers \n");
 
-   // return bla;
-
 }
 
 top_layer::top_layer(size_t Number_of_Column_per_layer, size_t Number_of_Cells_per_Column, brain &pBrain):
@@ -365,8 +363,6 @@ void layer::ConnectedSynapsesUpdate(void){
                 //
                 ++failure;
             }            
-
-
         }
 
     }
@@ -424,9 +420,6 @@ void layer::Do_SegmentUpdate(){
     //also simultaneously delete used SegmentUpdate objects from the vector
     //and delete element of CellUpdateList if there are no more pending updates for this cell
 
-    if(MotherBrain.time>50){
-        std::cout<<"bla 2.4.1\n";
-    }
     for(std::vector<cell*>::iterator itdummycell=CellUpdateList.begin();itdummycell!=CellUpdateList.end();){
         bool StayInCellUpdateList=false;
         for(segment& dummysegment:(*itdummycell)->SegList){
@@ -460,9 +453,7 @@ void layer::Do_SegmentUpdate(){
 
         }
     }
-    if(MotherBrain.time>50){
-        std::cout<<"bla 2.4.8\n";
-    }
+
 }
 
 void segment::AdaptingSynapses(bool success, SegmentUpdate& ToBeUpdated){
@@ -470,7 +461,6 @@ void segment::AdaptingSynapses(bool success, SegmentUpdate& ToBeUpdated){
     //or strengthen them.
     //if connection strength drops to zero or below we remove the corresponding synapse from the
     //segment.
-    std::cout<<"bla 2.4.12.01\n";
 
     for(cell*& remote_cell: ToBeUpdated.active_cells){
         for(auto dummySynapse:Synapse){
@@ -497,9 +487,7 @@ void segment::AdaptingSynapses(bool success, SegmentUpdate& ToBeUpdated){
             }
         }
     }
-    if(MotherCell.MotherColumn.MotherLayer.MotherBrain.time>50){
-        std::cout<<"bla 2.4.12.?\n";
-    }
+
 
 }
 
@@ -814,30 +802,20 @@ void UpdateInitialiser(layer* DummyLayer){
 void ThreadUpdater(layer* DummyLayer){
     //execute pending updates for DummyLayer
 
-    if(DummyLayer->MotherBrain.time>50){
-        std::cout<<"bla 2.1\n";
-    }
+
     DummyLayer->ActiveColumnUpdater();
 
-    if(DummyLayer->MotherBrain.time>50){
-        std::cout<<"bla 2.2\n";
-    }
+
     if(DummyLayer!=&DummyLayer->MotherBrain.LowestLayer){
         DummyLayer->ConnectedSynapsesUpdate();
     }
 
-    if(DummyLayer->MotherBrain.time>50){
-        std::cout<<"bla 2.3\n";
-    }
+
     DummyLayer->CellUpdater();
 
-    if(DummyLayer->MotherBrain.time>50){
-        std::cout<<"bla 2.4\n";
-    }
+
     DummyLayer->Do_SegmentUpdate();
-    if(DummyLayer->MotherBrain.time>50){
-        std::cout<<"bla 2.5\n";
-    }
+
 }
 
 
@@ -1081,9 +1059,7 @@ size_t debughelper::count_All_Synapses(void){
 
 void brain::update(){
 
-    if(time>50){
-        std::cout<<"bla 1\n";
-    }
+
 
     {//create Threads only locally in here
         if(multithreadding==true){
@@ -1104,9 +1080,7 @@ void brain::update(){
 
     }//end of the first generation of threads
 
-    if(time>50){
-        std::cout<<"bla 2\n";
-    }
+
     if(max_activation_counter_change==true){
         ++max_activation_counter;
         max_activation_counter_change=false;
@@ -1131,21 +1105,10 @@ void brain::update(){
 
 
     }
-    if(time>50){
-        std::cout<<"bla 3\n";
-    }
+
     //needs an extra loop due to interference
     for(layer*& DummyLayer:AllLevels){
-
-        if(time>50){
-            std::cout<<"bla 4\n";
-        }
-
         DummyLayer->forgetting();
-        if(time>50){
-            std::cout<<"bla 5\n";
-        }
-
         DummyLayer->Three_CellListUpdater();
     }
 
