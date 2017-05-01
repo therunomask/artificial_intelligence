@@ -8,7 +8,7 @@
 std::vector<bool> senses(size_t time){
     std::vector<bool> output(pillars_per_layer,false);
 
-    //time =1;
+    time =1;
     output[time%200]=true;
     output[(time+1)%200]=true;
     output[(time+2)%200]=true;
@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 {
 
     clock_t timer;
-    size_t End=1000;
+    size_t End=2000;
 
     brain joseph(layers_per_brain,pillars_per_layer,cells_per_column, senses);
 
@@ -35,8 +35,8 @@ int main(int argc, char *argv[])
     timer= clock() - timer;
     std::cout<<"we achieve "<<CLOCKS_PER_SEC*End/static_cast<float>(timer)<<"step steps per second"<<std::endl;
     //joseph.Martin_Luther.tell(&joseph.Martin_Luther.activation_column);
-    //joseph.Martin_Luther.tell(&joseph.Martin_Luther.success_column);
-    joseph.Martin_Luther.tell(&joseph.Martin_Luther.success_cell);
-    joseph.Martin_Luther.tell(&joseph.Martin_Luther.activation_cell);
+//    joseph.Martin_Luther.tell(&joseph.Martin_Luther.success_cell);
+    joseph.Martin_Luther.tell(&joseph.Martin_Luther.success_column);
+    std::cout<<"Maximal length of chain of segments is "<<joseph.max_activation_counter<<std::endl;
     return 0;
 }

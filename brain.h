@@ -137,10 +137,10 @@ propagate confusion to higher layers
 #define Learning_Decrement_spatial                  0.01
 #define Average_Overlap_lower_boundary              0.01
 #define Homogenous_Overlap_Increment                0.1
-#define Forgetfulness                               Learning_Increment/600 //highly dependent on current model 3*200
+#define Forgetfulness                               Learning_Increment/10 //highly dependent on current model 3*200
                                                                                                                // ^ frequency of input repitition
 //magic boosting function
-#define maximum_boosting                            3.0
+#define maximum_boosting                            1.0//3.0
 
 
 class segment{

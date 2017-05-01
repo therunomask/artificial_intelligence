@@ -276,6 +276,7 @@ void segment::operator=(const segment& rhsSegment){
 
 std::vector<cell*>  segment::GetActiveCells(){
     std::vector<cell*> tempactive_cells;
+
     for(std::pair <cell*,double>& dummySynapse: Synapse){
         if(dummySynapse.first->active[1]==true){
             tempactive_cells.emplace_back(dummySynapse.first);
@@ -346,27 +347,18 @@ void layer::ActiveColumnUpdater(void){
 void layer::ConnectedSynapsesUpdate(void){
     //strengthen connections to columns that were active
     //weaken connections to columns that were inactive
-    size_t success=0;
-    size_t failure=0;
-
-
 
     for(auto& pdummyColumn: ActColumns){
 
         for(auto& dummy_connected_synapse : pdummyColumn->ConnectedSynapses){            
             if(dummy_connected_synapse.first->active==true){
                 dummy_connected_synapse.second=std::min(dummy_connected_synapse.second+CondsInc/(pillars_per_layer*active_pillers_per_pillar),1.0);
-                //
-                ++success;
             }else{
                 dummy_connected_synapse.second=std::max(dummy_connected_synapse.second-CondsDec/(pillars_per_layer-pillars_per_layer*active_pillers_per_pillar),0.0);
-                //
-                ++failure;
             }            
         }
 
     }
-    MotherBrain.Martin_Luther.success_column[finding_oneself()].push_back(static_cast<double>(success)/static_cast<double>(success+failure));
 
 }
 double layer::ActivityLogUpdateFindMaxActivity(void){
@@ -419,6 +411,8 @@ void layer::Do_SegmentUpdate(){
     //if timer drops to zero or below implement pending update
     //also simultaneously delete used SegmentUpdate objects from the vector
     //and delete element of CellUpdateList if there are no more pending updates for this cell
+    size_t success=0;
+    size_t failure=0;
 
     for(std::vector<cell*>::iterator itdummycell=CellUpdateList.begin();itdummycell!=CellUpdateList.end();){
         bool StayInCellUpdateList=false;
@@ -433,7 +427,11 @@ void layer::Do_SegmentUpdate(){
                 }else{
 
                     dummysegment.AdaptingSynapses((*itdummycell)->active[0],*itDummyUpdate);
-
+                    if((*itdummycell)->active[0]==true){
+                        ++success;
+                    }else{
+                        ++failure;
+                    }
                     dummysegment.SegmentUpdateList.erase(itDummyUpdate);
 
                 }
@@ -453,6 +451,9 @@ void layer::Do_SegmentUpdate(){
 
         }
     }
+
+
+    MotherBrain.Martin_Luther.success_column[finding_oneself()].push_back(static_cast<double>(success)/static_cast<double>(success+failure));
 
 }
 
@@ -507,11 +508,21 @@ void layer::CellExpectInitiator( void ){
             segment* BestSegment= dummycell.BestSegmentInCell(0);
             if(BestSegment!=NULL){
                 //cell predicts now, because of active segment
+
                 PendingExpectation.push_back(&dummycell);
+                if(MotherBrain.time==562){
+                    std::cout<<"bla2\n";
+                }
                 //this segment is supposed to learn
                 CellUpdateList.push_back(&dummycell);
+                if(MotherBrain.time==562){
+                    std::cout<<"bla3\n";
+                }
                 BestSegment->SegmentUpdateList.emplace_back(BestSegment->GetActiveCells(),BestSegment->ActivationCountdown);
 
+                if(MotherBrain.time==562){
+                    std::cout<<"bla4\n";
+                }
                 if(dummycell.expect[1]==false){
                     //if prediction is unexpected,
                     //create a new Segment that matches the activity of the previous
@@ -521,6 +532,7 @@ void layer::CellExpectInitiator( void ){
                     if(MotherBrain.max_activation_counter==BestSegment->ActivationCountdown){
                         MotherBrain.max_activation_counter_change=true;
                     }
+
                     dummycell.SegList.emplace_back(dummycell,BestSegment->ActivationCountdown+1);
                     dummycell.SegList[dummycell.SegList.size()-1].BlindSynapseAdding(1);//1 = last timestep
 
@@ -767,10 +779,24 @@ segment* cell::BestSegmentInCell(size_t t){
     segment* pBestSegment=NULL;
     for(segment& dummysegment: SegList){
         double sum=0;
-        for(auto& dummysynapse: dummysegment.Synapse){
-            if(dummysynapse.first->active[t]==true){
+
+        // /////////////////////////////////////////////////////////////
+        // ///////////////debug!!
+        // /////////////////////////////////////////////////////////////
+        //for(auto& dummysynapse: dummysegment.Synapse){
+        for(size_t index=0; index<dummysegment.Synapse.size();++index){
+//            if(dummysynapse.first->active[t]==true){
+//                //add activity of synapse only if remote cell is active
+//                sum+=dummysynapse.second;
+//            }
+//        }
+//        if(sum>=max&&sum>=dummysegment.MinSynapseWeightActivity){
+//            max=sum;
+//            pBestSegment=&dummysegment;
+//        }
+            if(dummysegment.Synapse[index].first->active[t]==true){
                 //add activity of synapse only if remote cell is active
-                sum+=dummysynapse.second;
+                sum+=dummysegment.Synapse[index].second;
             }
         }
         if(sum>=max&&sum>=dummysegment.MinSynapseWeightActivity){
@@ -797,6 +823,8 @@ void UpdateInitialiser(layer* DummyLayer){
 
 
     DummyLayer->CellLearnInitiator();
+
+
 }
 
 void ThreadUpdater(layer* DummyLayer){
@@ -1012,6 +1040,7 @@ void debughelper::tell(std::vector<std::vector<double> >* dummyvec){
         name="avg_synapses_per_segment";
 
     }
+    Log<<"This is the debughelper speaking, taking the average of "<<name<<".\n";
 
 
     for(size_t l=0;l<dummyvec->size();++l){
@@ -1019,7 +1048,11 @@ void debughelper::tell(std::vector<std::vector<double> >* dummyvec){
             double average=0;
             for(size_t u=0;u<100;++u){
                 average+=(*dummyvec)[l][100*t+u];
+                if((*dummyvec)[l][100*t+u]!=(*dummyvec)[l][100*t+u]){
+                    std::cout<<"NaN at "<<100*t+u<<std::endl;
+                }
             }
+            Log<<"layer "<<l<<"time "<<t*100<<"avareage "<<average<<std::endl;
         }
     }
 }
@@ -1060,6 +1093,9 @@ size_t debughelper::count_All_Synapses(void){
 void brain::update(){
 
 
+    if(time==562){
+        std::cout<<"bla\n";
+    }
 
     {//create Threads only locally in here
         if(multithreadding==true){
