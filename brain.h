@@ -33,14 +33,14 @@ class SegmentUpdate;
  * do we want a whole sequence of n predicting segments in order to
  * predict in n timesteps, or do we allow for a gap in the sequence?
  *
+ * move inventory and pointercheck to debughelper
+ *
+ *add multithreadding also to forgetting, threecelllistUpdater loop
+ *
+ * program crashes if more than 4 columns are active in the lowest layer
  *
  *
- * check if things depend on a fixed segment number
- *
- *program crashes if more than 4 columns are active in the lowest layer
- *
- *
- *think of relevant variables that describe the workflow of our system
+ * think of relevant variables that describe the workflow of our system
  *
  * successrate of columns ( column gets into expected state and is activated accordingly)
  * successrate of cells
@@ -156,7 +156,7 @@ public:
 
     cell& MotherCell;                            //3*activeCollumns per layer
     static constexpr double MinSynapseWeightActivity=Minimal_sum_of_synapseweights_for_activity;
-    std::deque< std::pair <cell*,double>> Synapse;//pointer to adresses of cells in the segment
+    std::vector< std::pair <cell*,double>> Synapse;//pointer to adresses of cells in the segment
     //and connectedness values of the synapses in the segment
     size_t ActivationCountdown;//1 if prediction's due to this segment
             //should activate the column in question in the next
@@ -376,6 +376,7 @@ public:
     size_t count_All_Segments(void);
     size_t count_All_Synapses(void);
 
+    void checkConnectivity(void );
 };
 
 

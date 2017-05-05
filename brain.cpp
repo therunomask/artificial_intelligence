@@ -244,7 +244,7 @@ SegmentUpdate::SegmentUpdate(std::vector<cell*> active_cells, size_t countdown):
 segment::segment(cell& Cell_to_belong_to, size_t TempActivationCountdown)
     :
       MotherCell(Cell_to_belong_to),
-      Synapse(std::deque< std::pair <cell*,double>>() ),//still to be initialized afterward
+      Synapse(std::vector< std::pair <cell*,double>>() ),//still to be initialized afterward
       ActivationCountdown(TempActivationCountdown),
       SegmentUpdateList(std::vector<SegmentUpdate>())
 {
@@ -504,23 +504,26 @@ void layer::CellExpectInitiator( void ){
 
     for(column& pillars:ColumnList){
         for(cell& dummycell:pillars.CellList){
+            if(MotherBrain.time==561){
+                std::cout<<"bla1\n";
+            }
             //check whether cell currently has an active segment
             segment* BestSegment= dummycell.BestSegmentInCell(0);
             if(BestSegment!=NULL){
                 //cell predicts now, because of active segment
 
                 PendingExpectation.push_back(&dummycell);
-                if(MotherBrain.time==562){
+                if(MotherBrain.time==561){
                     std::cout<<"bla2\n";
                 }
                 //this segment is supposed to learn
                 CellUpdateList.push_back(&dummycell);
-                if(MotherBrain.time==562){
+                if(MotherBrain.time==561){
                     std::cout<<"bla3\n";
                 }
                 BestSegment->SegmentUpdateList.emplace_back(BestSegment->GetActiveCells(),BestSegment->ActivationCountdown);
 
-                if(MotherBrain.time==562){
+                if(MotherBrain.time==561){
                     std::cout<<"bla4\n";
                 }
                 if(dummycell.expect[1]==false){
@@ -541,7 +544,9 @@ void layer::CellExpectInitiator( void ){
 
         }
     }
-
+    if(MotherBrain.time==561){
+        std::cout<<"bla5\n";
+    }
 }
 
 
@@ -583,7 +588,9 @@ void layer::CellUpdater(void){
     }
     PendingExpectation=std::vector<cell*>();
 
-
+    if(MotherBrain.time==554||MotherBrain.time==553||MotherBrain.time==555){
+        std::cout<<"ble1.5\n";
+    }
 
 }
 
@@ -702,11 +709,41 @@ void bottom_layer:: FindBestColumns(){
 }
 
 void bottom_layer::Three_CellListUpdater(){
+    if(MotherBrain.time==561){
+        std::cout<<"ble1\n";
+    }
     if(Three_CellActivityList.size()>MotherBrain.max_activation_counter){
+        if(MotherBrain.time==561){
+            std::cout<<"ble1.5\n";
+            MotherBrain.Martin_Luther<<"the length of ThreeCellActivityList is "<<Three_CellActivityList[7].size()<<std::endl;
+        }
+        for(auto& element: Three_CellActivityList[Three_CellActivityList.size()-1]){
+            MotherBrain.Martin_Luther<<"anfang"<<element<<"ende"<<std::endl;
+        }
+        MotherBrain.Martin_Luther<<"\n";
         Three_CellActivityList.pop_back();
     }
+    if(MotherBrain.time==561){
+        std::cout<<"ble2\n";
+    }
     Three_CellActivityList.insert(Three_CellActivityList.begin(),CellActivityList);
+    if(MotherBrain.time==561){
+        std::cout<<"ble3\n";
+    }
     Three_CellActivityList[0].insert(Three_CellActivityList[0].begin(),p_upper_level->CellActivityList.begin(),p_upper_level->CellActivityList.end());
+    if(MotherBrain.time>0){
+        for(size_t iTime=0;iTime<Three_CellActivityList.size();++iTime){
+            for(size_t iDex=0;iDex<Three_CellActivityList[iTime].size();++iDex){
+                if(Three_CellActivityList[iTime][iDex]==NULL){
+                    MotherBrain.Martin_Luther<<"it is now "<<MotherBrain.time<<" and the last pointer is NULL"<<std::endl;
+                    MotherBrain.Martin_Luther<<"at time "<<MotherBrain.time<<" with coordinates "<<iTime<<" "<<iDex<<std::endl;
+                }
+            }
+        }
+    }
+    if(MotherBrain.time==561){
+        std::cout<<"ble4\n";
+    }
 }
 
 double column::feed_input(void){
@@ -753,10 +790,10 @@ segment* column::BestMatchingSegmentInColumnActivateCells(void){
 }
 
 
-inline void segment::BlindSynapseAdding(size_t t){
+inline void segment::BlindSynapseAdding(size_t time){
     //add all active synapses to a segment
 
-    for(auto& remote_cell:MotherCell.MotherColumn.MotherLayer.Three_CellActivityList[t]){
+    for(auto& remote_cell:MotherCell.MotherColumn.MotherLayer.Three_CellActivityList[time]){
         bool alreadythere=false;
         for(auto dummySynapse: Synapse){
             if(dummySynapse.first==remote_cell){
@@ -783,26 +820,28 @@ segment* cell::BestSegmentInCell(size_t t){
         // /////////////////////////////////////////////////////////////
         // ///////////////debug!!
         // /////////////////////////////////////////////////////////////
-        //for(auto& dummysynapse: dummysegment.Synapse){
-        for(size_t index=0; index<dummysegment.Synapse.size();++index){
-//            if(dummysynapse.first->active[t]==true){
-//                //add activity of synapse only if remote cell is active
-//                sum+=dummysynapse.second;
-//            }
-//        }
-//        if(sum>=max&&sum>=dummysegment.MinSynapseWeightActivity){
-//            max=sum;
-//            pBestSegment=&dummysegment;
-//        }
-            if(dummysegment.Synapse[index].first->active[t]==true){
+        size_t synapsecounter=0;
+        for(auto& dummysynapse: dummysegment.Synapse){
+//        for(size_t index=0; index<dummysegment.Synapse.size();++index){
+
+            if(dummysynapse.first->active[t]==true){
                 //add activity of synapse only if remote cell is active
-                sum+=dummysegment.Synapse[index].second;
+                sum+=dummysynapse.second;
             }
         }
         if(sum>=max&&sum>=dummysegment.MinSynapseWeightActivity){
             max=sum;
             pBestSegment=&dummysegment;
         }
+//            if(dummysegment.Synapse[index].first->active[t]==true){
+//                //add activity of synapse only if remote cell is active
+//                sum+=dummysegment.Synapse[index].second;
+//            }
+//        }
+//        if(sum>=max&&sum>=dummysegment.MinSynapseWeightActivity){
+//            max=sum;
+//            pBestSegment=&dummysegment;
+//        }
     }
     return pBestSegment;
 }
@@ -823,7 +862,9 @@ void UpdateInitialiser(layer* DummyLayer){
 
 
     DummyLayer->CellLearnInitiator();
-
+    if(DummyLayer->MotherBrain.time==561){
+        std::cout<<"blo0\n";
+    }
 
 }
 
@@ -1016,7 +1057,7 @@ debughelper::~debughelper(){
 template<typename T>
 std::ofstream& debughelper::operator<<(T message){
     Log<<message;
-    //Log.flush();
+    Log.flush();
     return Log;
 }
 
@@ -1083,6 +1124,34 @@ size_t debughelper::count_All_Synapses(void){
     return allSynapses;
 }
 
+void debughelper::checkConnectivity(void ){
+    for(layer*& dummyLayer: Motherbrain.AllLevels){
+        for(column& dummycolumn: dummyLayer->ColumnList){
+            for(auto& connection:dummycolumn.ConnectedSynapses){
+                if(connection.second<0||connection.second>1){
+                    Log<<"this column has a wrong connection of "<<connection.second<<std::endl;
+                    dummycolumn.who_am_I();
+
+                }
+                for(cell& dummycell:dummycolumn.CellList){
+                    for(segment& dummysegment:dummycell.SegList){
+                        for(auto& dummysynapse: dummysegment.Synapse){
+                            if(dummysynapse.second<0||dummysynapse.second>1){
+                                Log<<"this segment has a wrong connection of "<<dummysynapse.second<<std::endl;
+                                dummysegment.who_am_I();
+
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+
 
 
 //end of debugging functions
@@ -1093,9 +1162,11 @@ size_t debughelper::count_All_Synapses(void){
 void brain::update(){
 
 
-    if(time==562){
+    if(time==561){
         std::cout<<"bla\n";
     }
+
+    //Martin_Luther.checkConnectivity();
 
     {//create Threads only locally in here
         if(multithreadding==true){
@@ -1116,7 +1187,9 @@ void brain::update(){
 
     }//end of the first generation of threads
 
-
+    if(time==561){
+        std::cout<<"blo1\n";
+    }
     if(max_activation_counter_change==true){
         ++max_activation_counter;
         max_activation_counter_change=false;
@@ -1141,13 +1214,23 @@ void brain::update(){
 
 
     }
-
+    if(time==561){
+        std::cout<<"blo2\n";
+    }
     //needs an extra loop due to interference
     for(layer*& DummyLayer:AllLevels){
         DummyLayer->forgetting();
+        if(time==561){
+            std::cout<<"blo3\n";
+        }
         DummyLayer->Three_CellListUpdater();
+        if(time==561){
+            std::cout<<"blo4\n";
+        }
     }
-
+    if(time==561){
+        std::cout<<"blo22\n";
+    }
     //update inner clock
     ++time;
 }
