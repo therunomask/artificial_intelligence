@@ -7,11 +7,16 @@
 #include<iostream>
 #include <fstream>
 #include <mutex>
+#include"bottomlayer.h"
+#include"layer.h"
+#include"toplayer.h"
+#include"debughelper.h"
+#include"magicnumbers.h"
+
 
 class brain;
 class layer;
 class column;
-class LowSyn;
 class cell;
 class segment;
 class debughelper;
@@ -22,8 +27,6 @@ class SegmentUpdate;
 
 
 /*
- *
- *
  *
  *
  *
@@ -38,7 +41,7 @@ class SegmentUpdate;
  *add multithreadding also to forgetting, threecelllistUpdater loop
  *
  * program crashes if more than 4 columns are active in the lowest layer
- *
+ * find out how to properly write custom destructors
  *
  * think of relevant variables that describe the workflow of our system
  *
@@ -70,7 +73,6 @@ propagate confusion to higher layers
  *
  *check multithreadding+flowchart
  *
- * EndOfSequence?
  *
  * Dopaminsystem?
  *
@@ -108,276 +110,10 @@ propagate confusion to higher layers
  *
  */
 
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-//          optimize with respect to these numbers
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-//general dimensions of the system
-#define layers_per_brain                            4//8 with multithreadding
-#define active_pillers_per_pillar                   0.02
-#define cells_per_column                            3
-#define pillars_per_layer                           4 / active_pillers_per_pillar
-#define segments_per_cell                           cells_per_column/active_pillers_per_pillar/7
-#define synapses_per_segment                        3*active_pillers_per_pillar*pillars_per_layer
-//end of general dimensions
 
-//synapse
-#define initial_connectedness                       0.5
-#define Minimal_sum_of_synapseweights_for_activity  0.3*cells_per_column*active_pillers_per_pillar*pillars_per_layer
-#define Learning_Increment                          0.07
 
-//column
-#define column_geometric_factor                     99/100.0
-#define minimal_overlap_under_consideration         0.3 * pillars_per_layer*active_pillers_per_pillar
-#define Initial_Activity_log                        2.5 //(1/(1-column_geometric_factor) ^(1/active_pillers_per_pillar)))
-#define Initial_Overlap_Average                     Initial_Activity_log* active_pillers_per_pillar*pillars_per_layer
 
-//layer
-#define Learning_Increment_spatial                  0.01
-#define Learning_Decrement_spatial                  0.01
-#define Average_Overlap_lower_boundary              0.01
-#define Homogenous_Overlap_Increment                0.1
-#define Forgetfulness                               Learning_Increment/10 //highly dependent on current model 3*200
-                                                                                                               // ^ frequency of input repitition
-//magic boosting function
-#define maximum_boosting                            1.0//3.0
-
-
-class segment{
-private:
-    static constexpr double InitCon=initial_connectedness;
-            //cells in the segment
-
-public:
-    segment(cell& Cell_to_belong_to, size_t TempActivationCountdown);
-    segment(const segment& dummysegment);
-    void operator=(const segment& dummysegment);
-    //~segment(void);
-
-    cell& MotherCell;                            //3*activeCollumns per layer
-    static constexpr double MinSynapseWeightActivity=Minimal_sum_of_synapseweights_for_activity;
-    std::vector< std::pair <cell*,double>> Synapse;//pointer to adresses of cells in the segment
-    //and connectedness values of the synapses in the segment
-    size_t ActivationCountdown;//1 if prediction's due to this segment
-            //should activate the column in question in the next
-            //timestep rather than predicting prediction of activation
-    std::vector<SegmentUpdate> SegmentUpdateList;
-
-    static constexpr bool PositiveLearning= true;
-    static constexpr double LearnIncrement= Learning_Increment;//possibly change to harder
-                     // punishment for larger segments
-
-    void AddCell( cell*  const newcell);
-
-
-
-    void BlindSynapseAdding(size_t t);
-    std::vector<cell *> GetActiveCells();
-
-
-    //debugging after this mark
-    void who_am_I(void);
-    size_t finding_oneself(void);
-    void AdaptingSynapses(bool positive, SegmentUpdate& ToBeUpdated);//increase connectedness
-    //of winners, decrease connectedness
-    //of all other cells in the segment, disconnect them if
-    //connection too weak.
-};
-
-class SegmentUpdate{
-public:
-    ~SegmentUpdate(void){
-        //std::cout<<"deleting SegmentUpdate\n";
-    }
-
-    SegmentUpdate( std::vector<cell*> active_cells, size_t countdown );
-
-    std::vector<cell*> active_cells;//points to adresses in segment.Synaps
-    size_t timer;
-
-
-};
-
-class cell{
-
-public:
-    cell(column& Column_to_belong_to);
-    cell(const cell& dummycell);
-
-    column& MotherColumn;
-    std::deque<segment> SegList;//list of segments (net of horizontal
-            // connections) of this cell
-    std::vector<bool> active;//saves activity of last few timesteps
-    std::vector<bool> expect;//predicts input due to past experience and dendrite information
-
-    segment* BestSegmentInCell(size_t t);
-    //debugging after this mark
-    void who_am_I(void);
-    size_t finding_oneself(void);
-};
-
-class column{//contains connections to input and list of cells
-    //that contain lateral connections to predict activation of the column
-private:
-
-    double Overlap_Average;
-    static const int MinOverlap=static_cast<int>(minimal_overlap_under_consideration);
-
-
-public:
-    column(layer& layer_to_belong_to, size_t Number_of_Cells_per_Column);
-    column(const column& dummycolumn);
-    constexpr static double Average_Exp= column_geometric_factor; //Take average of overlap
-              //correspons to 65% of whole value was determined in the last 100 steps
-    std::vector<std::pair<column*,double>> ConnectedSynapses;//list of pointers to "connected" synapses and connection strength
-
-    layer& MotherLayer;
-    std::vector<cell> CellList;//List of cells in the colummn
-
-    bool active;//activity of feed forward input
-    bool expect;
-
-    double ActivityLog;//running average via geometric series
-
-    double boosting;//boost value increases
-                        //activity of columns which are not active enough
-
-
-    double feed_input(void);//computes activation caused by input
-    //connections count only as "connected" or "not connected" no further weights
-
-    double tell_overlap_average(void){//return running average overlap
-        return Overlap_Average;
-    }
-    segment* BestMatchingSegmentInColumnActivateCells(void);
-
-
-    //debugging after this mark
-    void who_am_I(void);
-    size_t finding_oneself(void);
-
-};
-
-class layer{//write a derived class lowest_layer; output_layer
-    //write constructor!!!!
-private:
-
-
-    constexpr static double FractionOfActiveColumns=active_pillers_per_pillar;
-    size_t DesiredLocalActivity;
-    //             v change to std::vector<column&>
-
-    //initialize to (Num_Columns,100)!
-    //running average of activity of cells
-    constexpr static double CondsInc=Learning_Increment_spatial;//connectedness increment
-    constexpr static double CondsDec=Learning_Decrement_spatial;//connectedness decrement
-    constexpr static double AverageOverlapMin = Average_Overlap_lower_boundary;
-    constexpr static double SpecialOverlapIncrement= Homogenous_Overlap_Increment;
-    //find meaningful values!!
-
-
-
-public:
-
-    layer(size_t Number_of_Column_per_Layer, size_t Number_of_Cells_per_Column, brain& pBrain);
-    layer(const layer& dummylayer);
-
-    std::vector<column*> ActColumns;//active columns; maybe turn into array of active
-
-    std::vector<column*> TempActColumns;//active columns; maybe turn into array of active
-
-    brain& MotherBrain;
-    const size_t Num_Columns;
-    layer*  p_lower_level;//pointer to lower layer to receive input
-    layer*  p_upper_level;//pointer to layer above current one
-
-    std::vector<column> ColumnList;//columns in the layer
-
-    std::vector<cell*> CellActivityList;//update as fast as possible
-
-    std::vector<std::vector<cell*>> Three_CellActivityList;//update parallel
-                                                            //outer vector for timesteps
-
-    std::vector<cell*> CellUpdateList;
-    std::vector<cell*> PendingActivity;
-    std::vector<cell*> PendingExpectation;
-
-    void virtual FindBestColumns(void);
-    void ActiveColumnUpdater(void);
-    void virtual ConnectedSynapsesUpdate(void);
-    double ActivityLogUpdateFindMaxActivity(void);
-    void virtual BoostingUpdate_StrenthenWeak(double MaxActivity);
-    void Do_SegmentUpdate(void);
-
-    void CellExpectInitiator(void);
-    void CellUpdater(void);
-    void CellLearnInitiator(void);
-    void virtual Three_CellListUpdater(void);
-    void forgetting(void);
-
-    //debugging after this mark
-    void who_am_I(void);
-    size_t finding_oneself(void);
-
-};
-
-
-class top_layer : public layer{
-public:
-    top_layer(size_t Number_of_Column_per_layer, size_t Number_of_Cells_per_Column, brain& pBrain);
-//pointer to upper level stays NULL
-    //Three_CellActivityList is really a two_cellactivityList in this case
-    void Three_CellListUpdater(void);
-
-};
-
-class bottom_layer : public layer{
-public:
-    //feed function pointer to FindBestColumn()!
-    bottom_layer(size_t Number_of_Column_per_layer, size_t Number_of_Cells_per_Column,brain& pBrain,std::vector<bool>(*sensoryinput)(size_t time));
-    //FindBestcolumns() is the best place to redefine dynamic of lowest layer by
-    //model specific behavior!
-
-    //not yet implemented; write 1. constructor, 2. FindBestcolumn, 3. Three_CellListUpdater
-    void FindBestColumns();
-
-
-    std::vector<bool>(*external_input)(size_t time);
-    void ConnectedSynapsesUpdate()
-    {
-        std::cout<<"lowest layer should not use ConnectedSynapsesUpdate! \n";
-        std::abort();
-    }//not necessary in lowest layer
-    void BoostingUpdate_StrenthenWeak()
-    {
-        std::cout<<"lowest layer should not use BoostingUpdate_StrenthenWeak! \n";
-        std::abort();
-    }//not necessary in lowest layer
-    void Three_CellListUpdater();
-};
-
-class debughelper{
-private:
-public:
-    debughelper(brain &BrainToBelongTo);
-    ~debughelper(void);
-    std::vector<std::vector<double>> success_column;
-    std::vector<std::vector<double>> success_cell;
-    std::vector<std::vector<double>> activation_column;
-    std::vector<std::vector<double>> activation_cell;
-    std::vector<std::vector<double>> avg_synapses_per_segment;
-    std::ofstream Log;
-    brain& Motherbrain;
-
-    template<typename T>
-    std::ofstream& operator<< ( T message);
-    //std::ofstream& operator<< ( double bla);
-    void tell(std::vector<std::vector<double> > *dummyvec);
-    size_t count_All_Segments(void);
-    size_t count_All_Synapses(void);
-
-    void checkConnectivity(void );
-};
 
 
 class brain{

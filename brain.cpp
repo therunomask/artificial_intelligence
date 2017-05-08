@@ -1,4 +1,12 @@
-#include "brain.h"
+#include"brain.h"
+#include"bottomlayer.h"
+#include"cell.h"
+#include"column.h"
+#include"toplayer.h"
+#include"debughelper.h"
+#include"layer.h"
+#include"segment.h"
+#include"segmentupdate.h"
 #include <iostream>
 #include <vector>
 #include <deque>
@@ -393,11 +401,12 @@ void layer::BoostingUpdate_StrenthenWeak(double MaxActivity){
     }
     Max_overlap *=AverageOverlapMin;//otimize magic number!
     //2. too little overlap
-    for(auto& pillar : ColumnList){
+    for(column& pillar : ColumnList){
         //strenthen pillars that never overlap uniformly
         if(pillar.tell_overlap_average() < Max_overlap){
             for(auto& con: pillar.ConnectedSynapses){
                 con.second+=SpecialOverlapIncrement;
+                con.second=std::min(con.second,1.0);
             }
         }
 
@@ -504,28 +513,21 @@ void layer::CellExpectInitiator( void ){
 
     for(column& pillars:ColumnList){
         for(cell& dummycell:pillars.CellList){
-            if(MotherBrain.time==561){
-                std::cout<<"bla1\n";
-            }
+
             //check whether cell currently has an active segment
             segment* BestSegment= dummycell.BestSegmentInCell(0);
             if(BestSegment!=NULL){
                 //cell predicts now, because of active segment
 
                 PendingExpectation.push_back(&dummycell);
-                if(MotherBrain.time==561){
-                    std::cout<<"bla2\n";
-                }
+
                 //this segment is supposed to learn
                 CellUpdateList.push_back(&dummycell);
-                if(MotherBrain.time==561){
-                    std::cout<<"bla3\n";
-                }
+
+
                 BestSegment->SegmentUpdateList.emplace_back(BestSegment->GetActiveCells(),BestSegment->ActivationCountdown);
 
-                if(MotherBrain.time==561){
-                    std::cout<<"bla4\n";
-                }
+
                 if(dummycell.expect[1]==false){
                     //if prediction is unexpected,
                     //create a new Segment that matches the activity of the previous
@@ -541,11 +543,7 @@ void layer::CellExpectInitiator( void ){
 
                 }
             }
-
         }
-    }
-    if(MotherBrain.time==561){
-        std::cout<<"bla5\n";
     }
 }
 
@@ -588,9 +586,6 @@ void layer::CellUpdater(void){
     }
     PendingExpectation=std::vector<cell*>();
 
-    if(MotherBrain.time==554||MotherBrain.time==553||MotherBrain.time==555){
-        std::cout<<"ble1.5\n";
-    }
 
 }
 
@@ -610,6 +605,8 @@ void layer::CellLearnInitiator(void){
             //activity of the last timestep with SequenceCounter==1
             //and also leads all the expecting Cells to activation
             segment* BestSegment=DummyColumn->BestMatchingSegmentInColumnActivateCells();
+            std::vector<cell*> activecells= BestSegment->GetActiveCells();
+            size_t countdown =BestSegment->ActivationCountdown;
             BestSegment->SegmentUpdateList.emplace_back(BestSegment->GetActiveCells(),BestSegment->ActivationCountdown);
         }
         else{
@@ -709,41 +706,15 @@ void bottom_layer:: FindBestColumns(){
 }
 
 void bottom_layer::Three_CellListUpdater(){
-    if(MotherBrain.time==561){
-        std::cout<<"ble1\n";
-    }
+
     if(Three_CellActivityList.size()>MotherBrain.max_activation_counter){
-        if(MotherBrain.time==561){
-            std::cout<<"ble1.5\n";
-            MotherBrain.Martin_Luther<<"the length of ThreeCellActivityList is "<<Three_CellActivityList[7].size()<<std::endl;
-        }
-        for(auto& element: Three_CellActivityList[Three_CellActivityList.size()-1]){
-            MotherBrain.Martin_Luther<<"anfang"<<element<<"ende"<<std::endl;
-        }
-        MotherBrain.Martin_Luther<<"\n";
+
         Three_CellActivityList.pop_back();
     }
-    if(MotherBrain.time==561){
-        std::cout<<"ble2\n";
-    }
+
     Three_CellActivityList.insert(Three_CellActivityList.begin(),CellActivityList);
-    if(MotherBrain.time==561){
-        std::cout<<"ble3\n";
-    }
+
     Three_CellActivityList[0].insert(Three_CellActivityList[0].begin(),p_upper_level->CellActivityList.begin(),p_upper_level->CellActivityList.end());
-    if(MotherBrain.time>0){
-        for(size_t iTime=0;iTime<Three_CellActivityList.size();++iTime){
-            for(size_t iDex=0;iDex<Three_CellActivityList[iTime].size();++iDex){
-                if(Three_CellActivityList[iTime][iDex]==NULL){
-                    MotherBrain.Martin_Luther<<"it is now "<<MotherBrain.time<<" and the last pointer is NULL"<<std::endl;
-                    MotherBrain.Martin_Luther<<"at time "<<MotherBrain.time<<" with coordinates "<<iTime<<" "<<iDex<<std::endl;
-                }
-            }
-        }
-    }
-    if(MotherBrain.time==561){
-        std::cout<<"ble4\n";
-    }
 }
 
 double column::feed_input(void){
@@ -768,7 +739,16 @@ segment* column::BestMatchingSegmentInColumnActivateCells(void){
     //return that segment.
     //also activate all the cells that expected activation of the column
     double max_count=0;
-    segment* pbestSegment= &CellList[0].SegList[0];
+    segment* pbestSegment=NULL;
+    for(cell& dummyCell:CellList){
+        if(dummyCell.SegList.size()>0){
+            pbestSegment= &dummyCell.SegList[0];
+        }
+    }
+
+    if(pbestSegment==NULL){
+        throw std::invalid_argument("expecting column has no segment \n");
+    }
     for(cell& dummy_cell: CellList){
         if(dummy_cell.expect[0]==true){
             MotherLayer.PendingActivity.push_back(&dummy_cell);
@@ -851,6 +831,10 @@ segment* cell::BestSegmentInCell(size_t t){
 
 void UpdateInitialiser(layer* DummyLayer){
    //prepares DummyLayer for the upcomming updates
+//    // ////////////////////////// ////////////////////////// ////////////////////////
+//    //debug!!
+//    DummyLayer->MotherBrain.Martin_Luther.ThreeCellActivityTester(DummyLayer->Three_CellActivityList,DummyLayer->finding_oneself());
+//    //end debug// ////////////////////////// ////////////////////////// ////////////////////////
 
     DummyLayer->FindBestColumns();
 
@@ -862,9 +846,6 @@ void UpdateInitialiser(layer* DummyLayer){
 
 
     DummyLayer->CellLearnInitiator();
-    if(DummyLayer->MotherBrain.time==561){
-        std::cout<<"blo0\n";
-    }
 
 }
 
@@ -1019,7 +1000,6 @@ void cell::who_am_I(void){
     MotherColumn.MotherLayer.MotherBrain.Martin_Luther<<" of layer "<<MotherColumn.MotherLayer.finding_oneself()<<std::endl;
 }
 size_t segment::finding_oneself(){
-    std::cout<<"still working at line "<<__LINE__<<" in function "<<__FUNCTION__<<std::endl;
 
     for(size_t i=0;i<MotherCell.SegList.size();++i){
         if(&MotherCell.SegList[i]==this){
@@ -1049,10 +1029,7 @@ debughelper::debughelper(brain& BrainToBelongTo):
     Log.flush();
 }
 
-debughelper::~debughelper(){
 
-    std::cout<<"we close the log\n";
-}
 
 template<typename T>
 std::ofstream& debughelper::operator<<(T message){
@@ -1087,13 +1064,19 @@ void debughelper::tell(std::vector<std::vector<double> >* dummyvec){
     for(size_t l=0;l<dummyvec->size();++l){
         for(size_t t=0;t<(*dummyvec)[l].size()/100;++t){
             double average=0;
+            size_t nans=0;
             for(size_t u=0;u<100;++u){
-                average+=(*dummyvec)[l][100*t+u];
                 if((*dummyvec)[l][100*t+u]!=(*dummyvec)[l][100*t+u]){
-                    std::cout<<"NaN at "<<100*t+u<<std::endl;
+                    //std::cout<<"NaN at "<<100*t+u<<std::endl;
+                    ++nans;
+                }else{
+                    average+=(*dummyvec)[l][100*t+u];
                 }
+
             }
-            Log<<"layer "<<l<<"time "<<t*100<<"avareage "<<average<<std::endl;
+            if(nans!=100){
+                Log<<"layer "<<l<<"time "<<t*100<<"avareage "<<average/(100-nans)<<std::endl;
+            }
         }
     }
 }
@@ -1151,6 +1134,27 @@ void debughelper::checkConnectivity(void ){
 
 
 
+void debughelper::ThreeCellActivityTester(std::vector<std::vector<cell*>> ThreeCellActivityList,size_t LayerNumber){
+    static std::vector<std::vector<std::vector<cell*>>> ThreeCellActivityListCopy(Motherbrain.AllLevels.size(),std::vector<std::vector<cell*>>(Motherbrain.max_activation_counter,std::vector<cell*>()));
+    if(Motherbrain.time>Motherbrain.max_activation_counter){
+        for(size_t iTime=0;iTime<ThreeCellActivityList.size()-1;++iTime){
+            if(ThreeCellActivityList[iTime+1].size()!=ThreeCellActivityListCopy[LayerNumber][iTime].size()){
+                Log<<"It is now "<<Motherbrain.time<<" the ThreeCellActivityList changed wrongly!\n";
+                Log<<"It has the wrong length at position "<<iTime+1<<std::endl;
+                throw std::invalid_argument("ThreeCellActivityList Changed wrongly.\n");
+
+            }
+            for(size_t iCell=0;iCell<ThreeCellActivityList[iTime+1].size();++iCell){
+                if(ThreeCellActivityList[iTime+1][iCell]!=ThreeCellActivityListCopy[LayerNumber][iTime][iCell]){
+                    Log<<"It is now "<<Motherbrain.time<<" the ThreeCellActivityList changed wrongly!\n";
+                    Log<<"It has the wrong length at position "<<iTime+1<<", "<<iCell<<std::endl;
+                    throw std::invalid_argument("ThreeCellActivityList Changed wrongly.\n");
+                }
+            }
+        }
+    }
+    ThreeCellActivityListCopy[LayerNumber]=ThreeCellActivityList;
+}
 
 
 
@@ -1160,12 +1164,6 @@ void debughelper::checkConnectivity(void ){
 
 
 void brain::update(){
-
-
-    if(time==561){
-        std::cout<<"bla\n";
-    }
-
     //Martin_Luther.checkConnectivity();
 
     {//create Threads only locally in here
@@ -1187,9 +1185,6 @@ void brain::update(){
 
     }//end of the first generation of threads
 
-    if(time==561){
-        std::cout<<"blo1\n";
-    }
     if(max_activation_counter_change==true){
         ++max_activation_counter;
         max_activation_counter_change=false;
@@ -1211,25 +1206,11 @@ void brain::update(){
                 ThreadUpdater(DummyLayer);
              }
          }
-
-
-    }
-    if(time==561){
-        std::cout<<"blo2\n";
     }
     //needs an extra loop due to interference
     for(layer*& DummyLayer:AllLevels){
         DummyLayer->forgetting();
-        if(time==561){
-            std::cout<<"blo3\n";
-        }
         DummyLayer->Three_CellListUpdater();
-        if(time==561){
-            std::cout<<"blo4\n";
-        }
-    }
-    if(time==561){
-        std::cout<<"blo22\n";
     }
     //update inner clock
     ++time;
