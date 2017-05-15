@@ -30,7 +30,9 @@ class SegmentUpdate;
  *
  *
  *
- * change boosting, perfect matching should be stable
+ * 2. expectation over time changes boosting
+ * 3. impose L1-norm on connections between columns
+ * 4. propagate information about wrong expectation to higher levels
  *
  *
  * do we want a whole sequence of n predicting segments in order to
@@ -119,11 +121,12 @@ propagate confusion to higher layers
 class brain{
 private:
     const size_t NumLevels;
-    std::vector<layer> ListOfLevels;
+
 
 
 
 public:
+    std::vector<layer> ListOfLevels;
     bottom_layer LowestLayer;
     top_layer    HighestLayer;
     std::vector<layer*> AllLevels;

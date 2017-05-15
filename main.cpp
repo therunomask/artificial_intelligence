@@ -9,10 +9,10 @@ std::vector<bool> senses(size_t time){
     std::vector<bool> output(pillars_per_layer,false);
 
     //time =1;
-    output[time%200]=true;
-    output[(time+1)%200]=true;
-    output[(time+2)%200]=true;
-    output[(time+3)%200]=true;
+    output[2*time%100]=true;
+    output[(2*time+1)%100]=true;
+    //output[(time+2)%100]=true;
+    //output[(time+3)%100]=true;
     return output;
 }
 

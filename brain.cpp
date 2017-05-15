@@ -362,7 +362,8 @@ void layer::ConnectedSynapsesUpdate(void){
             if(dummy_connected_synapse.first->active==true){
                 dummy_connected_synapse.second=std::min(dummy_connected_synapse.second+CondsInc/(pillars_per_layer*active_pillers_per_pillar),1.0);
             }else{
-                dummy_connected_synapse.second=std::max(dummy_connected_synapse.second-CondsDec/(pillars_per_layer-pillars_per_layer*active_pillers_per_pillar),0.0);
+                dummy_connected_synapse.second=std::max(dummy_connected_synapse.second-CondsDec/(pillars_per_layer*active_pillers_per_pillar),0.0);
+                //dummy_connected_synapse.second=std::max(dummy_connected_synapse.second-CondsDec/(pillars_per_layer-pillars_per_layer*active_pillers_per_pillar),0.0);
             }            
         }
 
@@ -1156,6 +1157,17 @@ void debughelper::ThreeCellActivityTester(std::vector<std::vector<cell*>> ThreeC
     ThreeCellActivityListCopy[LayerNumber]=ThreeCellActivityList;
 }
 
+void debughelper::totalColumnConnection(){
+    double totalConnection=0;
+    for(layer& DummyLayer: Motherbrain.ListOfLevels){
+        for(column& dummycolumn: DummyLayer.ColumnList){
+            for(auto& DummySynapse: dummycolumn.ConnectedSynapses){
+                totalConnection+= DummySynapse.second;
+            }
+        }
+    }
+    Log<<"It is now "<<Motherbrain.time<<" the current total column connection is "<<totalConnection<<std::endl;
+}
 
 
 //end of debugging functions
@@ -1166,6 +1178,11 @@ void debughelper::ThreeCellActivityTester(std::vector<std::vector<cell*>> ThreeC
 void brain::update(){
     //Martin_Luther.checkConnectivity();
 
+
+    if(time%100==50){
+        std::cout<<"bla \n";
+    }
+    Martin_Luther.totalColumnConnection();
     {//create Threads only locally in here
         if(multithreadding==true){
             std::vector<std::thread> Threads;
