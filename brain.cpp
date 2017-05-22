@@ -55,10 +55,16 @@ void BrainConstructionHelper(brain& Init_brain,size_t Number_of_Levels, size_t N
             continue;
         }
         for(column& DummyPillar: DummyLayer->ColumnList){
-            for(size_t SynapseIndex=0;SynapseIndex<DummyLayer->Num_Columns;SynapseIndex++){
-                //                                                                                                                                                                                          uniformly distributed between MinoverLap/2(0.15) and 1.5 Minoverlap(0.45)
-                //DummyPillar.ConnectedSynapses.push_back(std::pair<column*,double>(&(DummyLayer.p_lower_level->ColumnList[rand()%DummyLayer.p_lower_level->Num_Columns]),(static_cast<double>(rand())/RAND_MAX+1)*minimal_overlap_under_consideration/(pillars_per_layer*active_pillers_per_pillar)));
-                DummyPillar.ConnectedSynapses.push_back(std::pair<column*,double>(&(DummyLayer->p_lower_level->ColumnList[SynapseIndex]),0.3*(static_cast<double>(rand())/RAND_MAX+0.5)*minimal_overlap_under_consideration/(pillars_per_layer*active_pillers_per_pillar)));
+            std::vector<size_t> Indices;
+            for(size_t i=0;i<DummyLayer->Num_Columns;++i){
+                Indices.push_back(i);
+            }
+            for(size_t SynapseIndex=0;SynapseIndex<Maximum_Connectedness;SynapseIndex++){
+
+                size_t chosenIndex=rand()%Indices.size();
+    //                                                                                                                                                                                                          uniformly distributed between MinoverLap/2(0.15) and 1.5 Minoverlap(0.45)
+                DummyPillar.ConnectedSynapses.push_back(std::pair<column*,double>(&(DummyLayer->p_lower_level->ColumnList[Indices[chosenIndex]]),0.3*(static_cast<double>(rand())/RAND_MAX+0.5)*minimal_overlap_under_consideration/(pillars_per_layer*active_pillers_per_pillar)));
+                Indices.erase(Indices.begin()+ chosenIndex);
             }
 
         }
@@ -307,28 +313,85 @@ void layer::FindBestColumns(void){
     std::priority_queue<std::pair<double, column*>,std::vector<std::pair<double,column*>>,std::greater<std::pair<double,column*>>> winner;
     //priority queue orderes its elements automatically
     //long definition to make priority queue order its elements in increasing order
-    for (size_t i = 0; i < DesiredLocalActivity; ++i) {
-        winner.push(std::pair<double, column*>(ColumnList[i].feed_input(),&ColumnList[i] ));
-    }//first add minimum number of elements
-    for (size_t i = DesiredLocalActivity; i < Num_Columns; ++i) {
+
+    for (size_t i = 0; i < Num_Columns; ++i) {
         double overlap=ColumnList[i].feed_input();
-        if(overlap >winner.top().first){
-              winner.pop();
-              winner.push(std::pair<double, column*>(overlap, &ColumnList[i]));
+        if(overlap>0){
+            if(winner.size()<DesiredLocalActivity){
+                winner.push(std::pair<double, column*>(overlap, &ColumnList[i]));
+            }
+            else if(overlap >winner.top().first){
+                  winner.pop();
+                  winner.push(std::pair<double, column*>(overlap, &ColumnList[i]));
+            }
         }
     }//winner now contains #DesiredLocalActivity highest overlapping columns
 
-
-    for (size_t i = 0; i < DesiredLocalActivity; ++i) {
+    size_t NumberOfWinners=winner.size();
+    for (size_t i = 0; i<NumberOfWinners; ++i) {
         TempActColumns[i]=winner.top().second;
         winner.pop();
     }
+    if(NumberOfWinners<DesiredLocalActivity){
+        //if there are not enough winners, we create future winners
+        std::vector<column*> loser(ColumnSynapseAdding(DesiredLocalActivity-NumberOfWinners));
+
+        for(size_t i=NumberOfWinners;i<DesiredLocalActivity;++i){
+            TempActColumns[i]=loser[i-NumberOfWinners];
+        }
+
+    }
+
+
 
 //    for(size_t i=0;i<TempActColumns.size();++i){
 //        MotherBrain.Martin_Luther<<"at time "<<MotherBrain.time<<" ";
 //        TempActColumns[i]->who_am_I();
 //    }
 
+}
+
+std::vector<column * > layer::ColumnSynapseAdding(size_t ColumnsToFind){
+    //We would like to sign to columns, which were inactive so far, the unencountered input.
+
+std::priority_queue<std::pair<double, column *>, std::vector<std::pair<double, column *> > > LazyColumns;
+    for(column& DummyColumn:ColumnList){
+        //sort by inactivity
+        double AverageActivity = DummyColumn.ActivityLog;
+        if(LazyColumns.size()<ColumnsToFind){
+            LazyColumns.push(std::pair<double, column*>(AverageActivity, &DummyColumn));
+        }
+        else if(AverageActivity <LazyColumns.top().first){
+              LazyColumns.pop();
+              LazyColumns.push(std::pair<double, column*>(AverageActivity, &DummyColumn));
+        }
+    }
+
+    //copy queue into vector, for iteration
+    std::vector<column*> ReturnColumns;
+    while (LazyColumns.size()!=0){
+        ReturnColumns.push_back(LazyColumns.top().second);
+        LazyColumns.pop();
+    }
+
+    //add synapses to these columns
+    for(auto& DummyColumn:ReturnColumns){
+        for(column*& RemoteColumn: p_lower_level->ActColumns){
+            bool AlreadyThere=false;
+            for(auto& DummySynapse: DummyColumn->ConnectedSynapses){
+                if(RemoteColumn==DummySynapse.first){
+                    AlreadyThere=true;
+                    break;
+                }
+            }
+            if(AlreadyThere==false){
+                DummyColumn->ConnectedSynapses.push_back(std::pair<column*,double>(RemoteColumn,ColumnInitialConnectedness));
+            }
+        }
+    }
+
+
+    return ReturnColumns;
 }
 
 void layer::ActiveColumnUpdater(void){
@@ -354,17 +417,28 @@ void layer::ActiveColumnUpdater(void){
 
 void layer::ConnectedSynapsesUpdate(void){
     //strengthen connections to columns that were active
-    //weaken connections to columns that were inactive
+    //weaken connections homogenously only if there are too many strong connections
 
     for(auto& pdummyColumn: ActColumns){
+
+        double TotalConecctedness=0;
 
         for(auto& dummy_connected_synapse : pdummyColumn->ConnectedSynapses){            
             if(dummy_connected_synapse.first->active==true){
                 dummy_connected_synapse.second=std::min(dummy_connected_synapse.second+CondsInc/(pillars_per_layer*active_pillers_per_pillar),1.0);
-            }else{
-                dummy_connected_synapse.second=std::max(dummy_connected_synapse.second-CondsDec/(pillars_per_layer*active_pillers_per_pillar),0.0);
-                //dummy_connected_synapse.second=std::max(dummy_connected_synapse.second-CondsDec/(pillars_per_layer-pillars_per_layer*active_pillers_per_pillar),0.0);
-            }            
+            }
+            TotalConecctedness+=dummy_connected_synapse.second;
+        }
+        if(TotalConecctedness>MaximumConnectedness){
+            double decrement=(TotalConecctedness-MaximumConnectedness)/pdummyColumn->ConnectedSynapses.size();
+            for(size_t i=0 ; i<pdummyColumn->ConnectedSynapses.size();){
+                pdummyColumn->ConnectedSynapses[i].second-=decrement;
+                if(pdummyColumn->ConnectedSynapses[i].second<=0){
+                    pdummyColumn->ConnectedSynapses.erase(pdummyColumn->ConnectedSynapses.begin()+i);
+                }else{
+                    ++i;
+                }
+            }
         }
 
     }
@@ -724,8 +798,11 @@ double column::feed_input(void){
     int overlap=0;
     for(auto &syn : ConnectedSynapses){//v this silly number is 0.3
         if(syn.second>minimal_overlap_under_consideration/(pillars_per_layer*active_pillers_per_pillar)){
-            overlap+=static_cast<int>( syn.first->active||syn.first->expect);
+            overlap+=static_cast<int>( syn.first->active);//||syn.first->expect);
         }
+    }
+    if(overlap<MinOverlap){
+        overlap=0;
     }
     Overlap_Average= Average_Exp*Overlap_Average+ overlap;
     return overlap*boosting;
@@ -851,12 +928,13 @@ void ThreadUpdater(layer* DummyLayer){
     //execute pending updates for DummyLayer
 
 
-    DummyLayer->ActiveColumnUpdater();
+
 
 
     if(DummyLayer!=&DummyLayer->MotherBrain.LowestLayer){
         DummyLayer->ConnectedSynapsesUpdate();
     }
+
 
 
     DummyLayer->CellUpdater();
@@ -1220,6 +1298,10 @@ void brain::update(){
                 ThreadUpdater(DummyLayer);
              }
          }
+    }
+    //needs an extra loop due to interference
+    for(layer*& DummyLayer:AllLevels){
+        DummyLayer->ActiveColumnUpdater();
     }
     //needs an extra loop due to interference
     for(layer*& DummyLayer:AllLevels){

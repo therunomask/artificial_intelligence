@@ -29,6 +29,7 @@ class SegmentUpdate;
 /*
  *
  *
+ * disabled influence of expectation on activity of columns in feed_input()
  *
  * 2. expectation over time changes boosting
  * 3. impose L1-norm on connections between columns
