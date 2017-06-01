@@ -209,7 +209,7 @@ column::column(layer& layer_to_belong_to, size_t Number_of_Cells_per_Column)
     ConnectedSynapses(std::vector<std::pair<column*,double>>()),//still to be initialized for lowest and highest layer
     MotherLayer(layer_to_belong_to),
     CellList(std::vector<cell>()),
-    active(false),
+    active(std::vector<bool>(2,false)),
     expect(false),
     ActivityLog(Initial_Activity_log),
     boosting(1.0)
@@ -352,7 +352,7 @@ void layer::FindBestColumns(void){
 }
 
 std::vector<column * > layer::ColumnSynapseAdding(size_t ColumnsToFind){
-    //We would like to sign to columns, which were inactive so far, the unencountered input.
+    //We would like to asign to columns, which were inactive so far, the unencountered input.
 
 std::priority_queue<std::pair<double, column *>, std::vector<std::pair<double, column *> > > LazyColumns;
     for(column& DummyColumn:ColumnList){
@@ -398,13 +398,14 @@ void layer::ActiveColumnUpdater(void){
     //implement saved changes
 
     for(column& dummycolumn:ColumnList){
-        dummycolumn.active=false;
+        dummycolumn.active[1]=dummycolumn.active[0];
+        dummycolumn.active[0]=false;
     }
 
 
     for(size_t i=0;i<TempActColumns.size();++i){
         ActColumns[i]=TempActColumns[i];
-        ActColumns[i]->active=true;
+        ActColumns[i]->active[0]=true;
     }
 
 
@@ -423,8 +424,8 @@ void layer::ConnectedSynapsesUpdate(void){
 
         double TotalConecctedness=0;
 
-        for(auto& dummy_connected_synapse : pdummyColumn->ConnectedSynapses){            
-            if(dummy_connected_synapse.first->active==true){
+        for(auto& dummy_connected_synapse : pdummyColumn->ConnectedSynapses){
+            if(dummy_connected_synapse.first->active[1]==true){
                 dummy_connected_synapse.second=std::min(dummy_connected_synapse.second+CondsInc/(pillars_per_layer*active_pillers_per_pillar),1.0);
             }
             TotalConecctedness+=dummy_connected_synapse.second;
@@ -433,7 +434,7 @@ void layer::ConnectedSynapsesUpdate(void){
             double decrement=(TotalConecctedness-MaximumConnectedness)/pdummyColumn->ConnectedSynapses.size();
             for(size_t i=0 ; i<pdummyColumn->ConnectedSynapses.size();){
                 pdummyColumn->ConnectedSynapses[i].second-=decrement;
-                if(pdummyColumn->ConnectedSynapses[i].second<=0){
+                if(pdummyColumn->ConnectedSynapses[i].second<1/100000000000){
                     pdummyColumn->ConnectedSynapses.erase(pdummyColumn->ConnectedSynapses.begin()+i);
                 }else{
                     ++i;
@@ -449,7 +450,7 @@ double layer::ActivityLogUpdateFindMaxActivity(void){
 
     for(auto& dummy_pillar:ColumnList){
         //change activity log
-        dummy_pillar.ActivityLog =dummy_pillar.ActivityLog* dummy_pillar.Average_Exp+dummy_pillar.active;
+        dummy_pillar.ActivityLog =dummy_pillar.ActivityLog* dummy_pillar.Average_Exp+dummy_pillar.active[0];
 
         //more learning; activity based
         if(dummy_pillar.ActivityLog>MaxActivity){
@@ -798,7 +799,7 @@ double column::feed_input(void){
     int overlap=0;
     for(auto &syn : ConnectedSynapses){//v this silly number is 0.3
         if(syn.second>minimal_overlap_under_consideration/(pillars_per_layer*active_pillers_per_pillar)){
-            overlap+=static_cast<int>( syn.first->active);//||syn.first->expect);
+            overlap+=static_cast<int>( syn.first->active[0]);//||syn.first->expect);
         }
     }
     if(overlap<MinOverlap){
@@ -1254,7 +1255,7 @@ void brain::update(){
     //Martin_Luther.checkConnectivity();
 
 
-    if(time%100==50){
+    if(time%4==3&&time>100){
         std::cout<<"bla \n";
     }
     Martin_Luther.totalColumnConnection();
