@@ -28,6 +28,7 @@ class SegmentUpdate;
 
 /*
  *
+ * change initialization of cell synapses so that no two of the same segment point to the same cell
  *
  * disabled influence of expectation on activity of columns in feed_input()
  *

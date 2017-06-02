@@ -434,7 +434,7 @@ void layer::ConnectedSynapsesUpdate(void){
             double decrement=(TotalConecctedness-MaximumConnectedness)/pdummyColumn->ConnectedSynapses.size();
             for(size_t i=0 ; i<pdummyColumn->ConnectedSynapses.size();){
                 pdummyColumn->ConnectedSynapses[i].second-=decrement;
-                if(pdummyColumn->ConnectedSynapses[i].second<1/100000000000){
+                if(pdummyColumn->ConnectedSynapses[i].second<1/100000000.0){
                     pdummyColumn->ConnectedSynapses.erase(pdummyColumn->ConnectedSynapses.begin()+i);
                 }else{
                     ++i;
@@ -1255,7 +1255,7 @@ void brain::update(){
     //Martin_Luther.checkConnectivity();
 
 
-    if(time%4==3&&time>100){
+    if(time%10==3&&time>100){
         std::cout<<"bla \n";
     }
     Martin_Luther.totalColumnConnection();

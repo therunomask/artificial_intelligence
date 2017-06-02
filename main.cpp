@@ -9,8 +9,8 @@ std::vector<bool> senses(size_t time){
     std::vector<bool> output(pillars_per_layer,false);
 
     //time =1;
-    output[2*time%8]=true;
-    output[(2*time+1)%8]=true;
+    output[2*time%20]=true;
+    output[(2*time+1)%20]=true;
     //output[(time+2)%100]=true;
     //output[(time+3)%100]=true;
     return output;
@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 {
 
     clock_t timer;
-    size_t End=2000;
+    size_t End=4000;
 
     brain joseph(layers_per_brain,pillars_per_layer,cells_per_column, senses);
 
