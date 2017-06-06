@@ -288,11 +288,11 @@ void segment::operator=(const segment& rhsSegment){
 //segment::~segment(void){
 //}
 
-std::vector<cell*>  segment::GetActiveCells(){
+std::vector<cell*>  segment::GetActiveCells(size_t time){
     std::vector<cell*> tempactive_cells;
 
     for(std::pair <cell*,double>& dummySynapse: Synapse){
-        if(dummySynapse.first->active[1]==true){
+        if(dummySynapse.first->active[time]==true){
             tempactive_cells.emplace_back(dummySynapse.first);
         }
     }
@@ -508,6 +508,7 @@ void layer::Do_SegmentUpdate(){
 
                     --itDummyUpdate->timer;
                     ++itDummyUpdate;
+                    PendingExpectation.emplace_back(*itdummycell);
 
                 }else{
 
@@ -590,7 +591,7 @@ void layer::CellExpectInitiator( void ){
     for(column& pillars:ColumnList){
         for(cell& dummycell:pillars.CellList){
 
-            //check whether cell currently has an active segment
+            //check whether cell currently has an active segment           
             segment* BestSegment= dummycell.BestSegmentInCell(0);
             if(BestSegment!=NULL){
                 //cell predicts now, because of active segment
@@ -601,7 +602,7 @@ void layer::CellExpectInitiator( void ){
                 CellUpdateList.push_back(&dummycell);
 
 
-                BestSegment->SegmentUpdateList.emplace_back(BestSegment->GetActiveCells(),BestSegment->ActivationCountdown);
+                BestSegment->SegmentUpdateList.emplace_back(BestSegment->GetActiveCells(0),BestSegment->ActivationCountdown);
 
 
                 if(dummycell.expect[1]==false){
@@ -675,15 +676,15 @@ void layer::CellLearnInitiator(void){
 
 
 
-    for(column*& DummyColumn:ActColumns){
+    for(column*& DummyColumn:TempActColumns){
         if(DummyColumn->expect==true){
             //this function finds the segment that fits best the
             //activity of the last timestep with SequenceCounter==1
             //and also leads all the expecting Cells to activation
-            segment* BestSegment=DummyColumn->BestMatchingSegmentInColumnActivateCells();
-            std::vector<cell*> activecells= BestSegment->GetActiveCells();
-            size_t countdown =BestSegment->ActivationCountdown;
-            BestSegment->SegmentUpdateList.emplace_back(BestSegment->GetActiveCells(),BestSegment->ActivationCountdown);
+            for(size_t timer=0; timer<Three_CellActivityList.size();++timer){
+                segment* BestSegment=DummyColumn->BestMatchingSegmentInColumnActivateCells(timer);
+                BestSegment->SegmentUpdateList.emplace_back(BestSegment->GetActiveCells(timer),BestSegment->ActivationCountdown);
+            }
         }
         else{
             //activity came unexpected, so we
@@ -809,7 +810,7 @@ double column::feed_input(void){
     return overlap*boosting;
 }
 
-segment* column::BestMatchingSegmentInColumnActivateCells(void){
+segment* column::BestMatchingSegmentInColumnActivateCells(size_t time){
     //find the best matching segment of all the cells in the column,
     //which led the column to expect its activation (i.e. cell.expect==true)
     //return that segment.
@@ -819,6 +820,7 @@ segment* column::BestMatchingSegmentInColumnActivateCells(void){
     for(cell& dummyCell:CellList){
         if(dummyCell.SegList.size()>0){
             pbestSegment= &dummyCell.SegList[0];
+            break;
         }
     }
 
@@ -831,7 +833,7 @@ segment* column::BestMatchingSegmentInColumnActivateCells(void){
             for(segment& dummy_segment:dummy_cell.SegList){
                 double count=0;
                 for(auto& remote_cell: dummy_segment.Synapse){
-                    if(remote_cell.first->active[1]==true&&dummy_segment.ActivationCountdown==1)
+                    if(remote_cell.first->active[time]==true&&dummy_segment.ActivationCountdown==time+1)
                     {count+=remote_cell.second;}
                 }
                 if(count> max_count){
@@ -872,13 +874,7 @@ segment* cell::BestSegmentInCell(size_t t){
     segment* pBestSegment=NULL;
     for(segment& dummysegment: SegList){
         double sum=0;
-
-        // /////////////////////////////////////////////////////////////
-        // ///////////////debug!!
-        // /////////////////////////////////////////////////////////////
-        size_t synapsecounter=0;
         for(auto& dummysynapse: dummysegment.Synapse){
-//        for(size_t index=0; index<dummysegment.Synapse.size();++index){
 
             if(dummysynapse.first->active[t]==true){
                 //add activity of synapse only if remote cell is active
@@ -889,15 +885,6 @@ segment* cell::BestSegmentInCell(size_t t){
             max=sum;
             pBestSegment=&dummysegment;
         }
-//            if(dummysegment.Synapse[index].first->active[t]==true){
-//                //add activity of synapse only if remote cell is active
-//                sum+=dummysegment.Synapse[index].second;
-//            }
-//        }
-//        if(sum>=max&&sum>=dummysegment.MinSynapseWeightActivity){
-//            max=sum;
-//            pBestSegment=&dummysegment;
-//        }
     }
     return pBestSegment;
 }
@@ -920,23 +907,17 @@ void UpdateInitialiser(layer* DummyLayer){
     }
     DummyLayer->CellExpectInitiator();
 
-
     DummyLayer->CellLearnInitiator();
 
 }
 
 void ThreadUpdater(layer* DummyLayer){
     //execute pending updates for DummyLayer
-
-
-
-
-
     if(DummyLayer!=&DummyLayer->MotherBrain.LowestLayer){
         DummyLayer->ConnectedSynapsesUpdate();
     }
 
-
+    DummyLayer->ActiveColumnUpdater();
 
     DummyLayer->CellUpdater();
 
@@ -1258,7 +1239,6 @@ void brain::update(){
     if(time%10==3&&time>100){
         std::cout<<"bla \n";
     }
-    Martin_Luther.totalColumnConnection();
     {//create Threads only locally in here
         if(multithreadding==true){
             std::vector<std::thread> Threads;
@@ -1301,9 +1281,7 @@ void brain::update(){
          }
     }
     //needs an extra loop due to interference
-    for(layer*& DummyLayer:AllLevels){
-        DummyLayer->ActiveColumnUpdater();
-    }
+
     //needs an extra loop due to interference
     for(layer*& DummyLayer:AllLevels){
         DummyLayer->forgetting();
