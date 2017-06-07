@@ -504,7 +504,7 @@ void layer::Do_SegmentUpdate(){
         for(segment& dummysegment:(*itdummycell)->SegList){
             for(std::vector<SegmentUpdate>::iterator itDummyUpdate=dummysegment.SegmentUpdateList.begin();itDummyUpdate!=dummysegment.SegmentUpdateList.end();){
 
-                if(itDummyUpdate->timer>0){
+                if(itDummyUpdate->timer>1){
 
                     --itDummyUpdate->timer;
                     ++itDummyUpdate;
@@ -556,7 +556,7 @@ void segment::AdaptingSynapses(bool success, SegmentUpdate& ToBeUpdated){
                 if(success==true){
                     dummySynapse.second= std::min(static_cast<double>(1),dummySynapse.second+LearnIncrement);
                     if(Synapse.size()<synapses_per_segment){
-                        BlindSynapseAdding(ActivationCountdown);
+                        BlindSynapseAdding(ActivationCountdown-1);
                     }
                 }else{
                     dummySynapse.second= dummySynapse.second- LearnIncrement;
@@ -605,7 +605,7 @@ void layer::CellExpectInitiator( void ){
                 BestSegment->SegmentUpdateList.emplace_back(BestSegment->GetActiveCells(0),BestSegment->ActivationCountdown);
 
 
-                if(dummycell.expect[1]==false){
+                if(dummycell.expect[0]==false){
                     //if prediction is unexpected,
                     //create a new Segment that matches the activity of the previous
                     //timestep. Do blind synapse adding for this segment,
@@ -616,7 +616,7 @@ void layer::CellExpectInitiator( void ){
                     }
 
                     dummycell.SegList.emplace_back(dummycell,BestSegment->ActivationCountdown+1);
-                    dummycell.SegList[dummycell.SegList.size()-1].BlindSynapseAdding(1);//1 = last timestep
+                    dummycell.SegList[dummycell.SegList.size()-1].BlindSynapseAdding(1);
 
                 }
             }
@@ -744,7 +744,9 @@ void layer::forgetting(){
         for(cell& DummyCell: DummyColumn.CellList){
             for(size_t DummySegmentIndex=0;DummySegmentIndex<DummyCell.SegList.size();){
                 for(size_t SynIndex=0;SynIndex<DummyCell.SegList[DummySegmentIndex].Synapse.size();){
-                    if(DummyCell.SegList[DummySegmentIndex].Synapse[SynIndex].second<1){
+                    if(DummyCell.SegList[DummySegmentIndex].Synapse[SynIndex].second<1&&
+                            DummyCell.SegList[DummySegmentIndex].SegmentUpdateList.size()==0){
+
                         DummyCell.SegList[DummySegmentIndex].Synapse[SynIndex].second-=Forgetfulness;
                     }
                     if(DummyCell.SegList[DummySegmentIndex].Synapse[SynIndex].second<=0){
@@ -1230,13 +1232,28 @@ void debughelper::totalColumnConnection(){
 //end of debugging functions
 
 
+void debughelper::HowStatic(size_t period){
+    //finish comparison between activity of cells and columns now and period timesteps ago
+    static std::vector<std::vector<bool>> ColumnAct(Motherbrain.AllLevels->size(),std::vector<bool>(Motherbrain.AllLevels[0]->ColumnList.size(),false));
+    static std::vector<std::vector<std::vector< bool>>> CellAct(Motherbrain.AllLevels->size(),std::vector<std::vector<bool>>(Motherbrain.AllLevels[0]->ColumnList.size(),std::vector<bool>(Motherbrain.AllLevels[0]->ColumnList[0].CellList.size(),false)));
 
+
+
+    for(size_t LayerIndex=0;LayerIndex<Motherbrain.AllLevels->size();++LayerIndex){
+        for(size_t ColumnIndex=0;ColumnIndex<Motherbrain.AllLevels[LayerIndex]->ColumnList.size();++ColumnIndex){
+            ColumnAct[LayerIndex][ColumnIndex]=Motherbrain.AllLevels[LayerIndex]->ColumnList[ColumnIndex].active[0];
+            for(size_t CellIndex=0;CellIndex<Motherbrain.AllLevels[LayerIndex]->ColumnList.CellList.size();++CellIndex){
+                CellAct[LayerIndex][ColumnIndex][CellIndex]=Motherbrain.AllLevels[LayerIndex]->ColumnList[ColumnIndex].CellList.active[0];
+            }
+        }
+    }
+}
 
 void brain::update(){
     //Martin_Luther.checkConnectivity();
 
 
-    if(time%10==3&&time>100){
+    if(time%10==3&&time>400){
         std::cout<<"bla \n";
     }
     {//create Threads only locally in here

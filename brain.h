@@ -27,6 +27,7 @@ class SegmentUpdate;
 
 
 /*
+ * finish HowStatic
  *
  * change layer::BoostingUpdate_StrengthenWeak
  *
