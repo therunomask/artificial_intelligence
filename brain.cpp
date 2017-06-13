@@ -1234,19 +1234,35 @@ void debughelper::totalColumnConnection(){
 
 void debughelper::HowStatic(size_t period){
     //finish comparison between activity of cells and columns now and period timesteps ago
-    static std::vector<std::vector<bool>> ColumnAct(Motherbrain.AllLevels->size(),std::vector<bool>(Motherbrain.AllLevels[0]->ColumnList.size(),false));
-    static std::vector<std::vector<std::vector< bool>>> CellAct(Motherbrain.AllLevels->size(),std::vector<std::vector<bool>>(Motherbrain.AllLevels[0]->ColumnList.size(),std::vector<bool>(Motherbrain.AllLevels[0]->ColumnList[0].CellList.size(),false)));
+    static size_t RealPeriod= period;
+    static std::vector<std::vector<std::vector<bool>>> ColumnAct(Motherbrain.AllLevels.size(),std::vector<std::vector<bool>>(Motherbrain.AllLevels[0]->ColumnList.size(),std::vector<bool>(RealPeriod,false)));
+    static std::vector<std::vector<std::vector<std::vector< bool>>>> CellAct(Motherbrain.AllLevels.size(), std::vector<std::vector<std::vector<bool>>>(Motherbrain.AllLevels[0]->ColumnList.size(),std::vector<std::vector<bool>>(Motherbrain.AllLevels[0]->ColumnList[0].CellList.size(),std::vector<bool>(RealPeriod,false))));
+
+    assert(period==RealPeriod);
 
 
+    size_t ColumnCount=0;
+    size_t CellCount=0;
 
-    for(size_t LayerIndex=0;LayerIndex<Motherbrain.AllLevels->size();++LayerIndex){
+    for(size_t LayerIndex=0;LayerIndex<Motherbrain.AllLevels.size();++LayerIndex){
         for(size_t ColumnIndex=0;ColumnIndex<Motherbrain.AllLevels[LayerIndex]->ColumnList.size();++ColumnIndex){
-            ColumnAct[LayerIndex][ColumnIndex]=Motherbrain.AllLevels[LayerIndex]->ColumnList[ColumnIndex].active[0];
-            for(size_t CellIndex=0;CellIndex<Motherbrain.AllLevels[LayerIndex]->ColumnList.CellList.size();++CellIndex){
-                CellAct[LayerIndex][ColumnIndex][CellIndex]=Motherbrain.AllLevels[LayerIndex]->ColumnList[ColumnIndex].CellList.active[0];
+            ColumnAct[LayerIndex][ColumnIndex].insert(ColumnAct[LayerIndex][ColumnIndex].begin(), Motherbrain.AllLevels[LayerIndex]->ColumnList[ColumnIndex].active[0]);
+            if(ColumnAct[LayerIndex][ColumnIndex][0]==ColumnAct[LayerIndex][ColumnIndex].back()){
+                ++ColumnCount;
+            }
+            ColumnAct[LayerIndex][ColumnIndex].pop_back();
+            for(size_t CellIndex=0;CellIndex<Motherbrain.AllLevels[LayerIndex]->ColumnList[ColumnIndex].CellList.size();++CellIndex){
+                CellAct[LayerIndex][ColumnIndex][CellIndex].insert(CellAct[LayerIndex][ColumnIndex][CellIndex].begin(),Motherbrain.AllLevels[LayerIndex]->ColumnList[ColumnIndex].CellList[CellIndex].active[0]);
+                if(CellAct[LayerIndex][ColumnIndex][CellIndex][0]==CellAct[LayerIndex][ColumnIndex][CellIndex].back()){
+                    ++CellCount;
+                }
+                CellAct[LayerIndex][ColumnIndex][CellIndex].pop_back();
             }
         }
     }
+    double ColumnAverage=static_cast<double>( ColumnCount)/(ColumnAct[0].size()*ColumnAct.size());
+    double CellAverage= static_cast<double>(CellCount)/(CellAct[0][0].size()*CellAct[0].size()*CellAct.size());
+    Log<<"The columns are as static as "<<ColumnAverage<<", while the cells are as static as "<<CellAverage<<std::endl;
 }
 
 void brain::update(){
@@ -1256,6 +1272,7 @@ void brain::update(){
     if(time%10==3&&time>400){
         std::cout<<"bla \n";
     }
+    Martin_Luther.HowStatic(10);
     {//create Threads only locally in here
         if(multithreadding==true){
             std::vector<std::thread> Threads;
