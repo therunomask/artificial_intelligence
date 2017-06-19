@@ -27,7 +27,9 @@ class SegmentUpdate;
 
 
 /*
- * finish HowStatic
+ * new segments have synapses to cells with different activation patterns,
+ * some of them not matching ActivationCountdown
+ * probable origin: adatingSynapses/blindsynapseadding
  *
  * change layer::BoostingUpdate_StrengthenWeak
  *

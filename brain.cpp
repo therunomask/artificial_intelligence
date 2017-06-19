@@ -595,13 +595,10 @@ void layer::CellExpectInitiator( void ){
             segment* BestSegment= dummycell.BestSegmentInCell(0);
             if(BestSegment!=NULL){
                 //cell predicts now, because of active segment
-
                 PendingExpectation.push_back(&dummycell);
 
                 //this segment is supposed to learn
                 CellUpdateList.push_back(&dummycell);
-
-
                 BestSegment->SegmentUpdateList.emplace_back(BestSegment->GetActiveCells(0),BestSegment->ActivationCountdown);
 
 
@@ -609,9 +606,7 @@ void layer::CellExpectInitiator( void ){
                     //if prediction is unexpected,
                     //create a new Segment that matches the activity of the previous
                     //timestep. Do blind synapse adding for this segment,
-                    //we choose this kind of learning, because the current
-                    //prediction was not predicted.
-                    if(MotherBrain.max_activation_counter==BestSegment->ActivationCountdown){
+                    if(MotherBrain.max_activation_counter==BestSegment->ActivationCountdown+1){
                         MotherBrain.max_activation_counter_change=true;
                     }
 
@@ -627,8 +622,6 @@ void layer::CellExpectInitiator( void ){
 
 
 void layer::CellUpdater(void){
-    //debughelper statistics
-    //MotherBrain.Martin_Luther.activation_cell[finding_oneself()].push_back(static_cast<double>(PendingActivity.size())/(cells_per_column*pillars_per_layer));
 
 
     CellActivityList=std::vector<cell*>();
@@ -676,6 +669,7 @@ void layer::CellLearnInitiator(void){
 
 
 
+
     for(column*& DummyColumn:TempActColumns){
         if(DummyColumn->expect==true){
             //this function finds the segment that fits best the
@@ -704,7 +698,6 @@ void layer::CellLearnInitiator(void){
                     SegmentMinCounter=SegmentCounter;
                 }
             }
-
             PoorestCell->SegList.emplace_back(*PoorestCell,1);
             PoorestCell->SegList[PoorestCell->SegList.size()-1].BlindSynapseAdding(0);
 
@@ -831,7 +824,15 @@ segment* column::BestMatchingSegmentInColumnActivateCells(size_t time){
     }
     for(cell& dummy_cell: CellList){
         if(dummy_cell.expect[0]==true){
-            MotherLayer.PendingActivity.push_back(&dummy_cell);
+            bool DontDuplicateCells=false;
+            for(cell*& extraCell: MotherLayer.PendingActivity){
+                if(extraCell==&dummy_cell){
+                    DontDuplicateCells=true;
+                }
+            }
+            if(DontDuplicateCells==false){
+                MotherLayer.PendingActivity.push_back(&dummy_cell);
+            }
             for(segment& dummy_segment:dummy_cell.SegList){
                 double count=0;
                 for(auto& remote_cell: dummy_segment.Synapse){
@@ -895,11 +896,6 @@ segment* cell::BestSegmentInCell(size_t t){
 
 
 void UpdateInitialiser(layer* DummyLayer){
-   //prepares DummyLayer for the upcomming updates
-//    // ////////////////////////// ////////////////////////// ////////////////////////
-//    //debug!!
-//    DummyLayer->MotherBrain.Martin_Luther.ThreeCellActivityTester(DummyLayer->Three_CellActivityList,DummyLayer->finding_oneself());
-//    //end debug// ////////////////////////// ////////////////////////// ////////////////////////
 
     DummyLayer->FindBestColumns();
 
@@ -1204,7 +1200,17 @@ void debughelper::ThreeCellActivityTester(std::vector<std::vector<cell*>> ThreeC
                 throw std::invalid_argument("ThreeCellActivityList Changed wrongly.\n");
 
             }
+
+            for(size_t iCell=0;iCell<ThreeCellActivityList[0].size();++iCell){
+                if(ThreeCellActivityList[0][iCell]->active[0]==false){
+                    Log<<"Cell:\n";
+                    ThreeCellActivityList[0][iCell]->who_am_I();
+                    Log<< " in ThreeCellActivityList is not active!!!\n ";
+                }
+            }
             for(size_t iCell=0;iCell<ThreeCellActivityList[iTime+1].size();++iCell){
+
+
                 if(ThreeCellActivityList[iTime+1][iCell]!=ThreeCellActivityListCopy[LayerNumber][iTime][iCell]){
                     Log<<"It is now "<<Motherbrain.time<<" the ThreeCellActivityList changed wrongly!\n";
                     Log<<"It has the wrong length at position "<<iTime+1<<", "<<iCell<<std::endl;
@@ -1256,13 +1262,16 @@ void debughelper::HowStatic(size_t period){
                 if(CellAct[LayerIndex][ColumnIndex][CellIndex][0]==CellAct[LayerIndex][ColumnIndex][CellIndex].back()){
                     ++CellCount;
                 }
+                else{
+                    Log<<"Cell number: "<<LayerIndex<<","<<ColumnIndex<<","<<CellIndex<<" changed \n";
+                }
                 CellAct[LayerIndex][ColumnIndex][CellIndex].pop_back();
             }
         }
     }
     double ColumnAverage=static_cast<double>( ColumnCount)/(ColumnAct[0].size()*ColumnAct.size());
     double CellAverage= static_cast<double>(CellCount)/(CellAct[0][0].size()*CellAct[0].size()*CellAct.size());
-    Log<<"The columns are as static as "<<ColumnAverage<<", while the cells are as static as "<<CellAverage<<std::endl;
+    Log<<"At time "<<Motherbrain.time<<", the columns are as static as "<<ColumnAverage<<", while the cells are as static as "<<CellAverage<<std::endl;
 }
 
 void brain::update(){
@@ -1321,6 +1330,11 @@ void brain::update(){
         DummyLayer->forgetting();
         DummyLayer->Three_CellListUpdater();
     }
+
+    for(size_t LayerIndex=0;LayerIndex<AllLevels.size();++LayerIndex ){
+        Martin_Luther.ThreeCellActivityTester(AllLevels[LayerIndex]->Three_CellActivityList,LayerIndex);
+    }
+
     //update inner clock
     ++time;
 }
