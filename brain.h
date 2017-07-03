@@ -27,11 +27,14 @@ class SegmentUpdate;
 
 
 /*
+ *
+ * check line by line why cell activity is not predicted correctly by segments (off by up to 3 (at least))
+ *
+ *
  * new segments have synapses to cells with different activation patterns,
  * some of them not matching ActivationCountdown
  * probable origin: adatingSynapses/blindsynapseadding
  *
- * change layer::BoostingUpdate_StrengthenWeak
  *
  * change initialization of cell synapses so that no two of the same segment point to the same cell
  *

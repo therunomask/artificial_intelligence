@@ -445,50 +445,19 @@ void layer::ConnectedSynapsesUpdate(void){
     }
 
 }
-double layer::ActivityLogUpdateFindMaxActivity(void){
+void layer::ActivityLogUpdate(void){
     double MaxActivity = 0;
 
     for(auto& dummy_pillar:ColumnList){
         //change activity log
         dummy_pillar.ActivityLog =dummy_pillar.ActivityLog* dummy_pillar.Average_Exp+dummy_pillar.active[0];
 
-        //more learning; activity based
-        if(dummy_pillar.ActivityLog>MaxActivity){
-            MaxActivity=dummy_pillar.ActivityLog;
-        }
     }
 
-    return MaxActivity;
 
 }
 
 
-void layer::BoostingUpdate_StrenthenWeak(double MaxActivity){
-
-    int Max_overlap=0;
-    //1. too little activity
-    for(auto& dummy_column:ColumnList){
-        //arbitrary boost function!!
-        dummy_column.boosting=maximum_boosting-(maximum_boosting-1.0)*(dummy_column.ActivityLog/MaxActivity);
-        //optimize w.r.t. this function!!
-        if(dummy_column.tell_overlap_average()>Max_overlap){
-            Max_overlap=dummy_column.tell_overlap_average();
-        }
-    }
-    Max_overlap *=AverageOverlapMin;//otimize magic number!
-    //2. too little overlap
-    for(column& pillar : ColumnList){
-        //strenthen pillars that never overlap uniformly
-        if(pillar.tell_overlap_average() < Max_overlap){
-            for(auto& con: pillar.ConnectedSynapses){
-                con.second+=SpecialOverlapIncrement;
-                con.second=std::min(con.second,1.0);
-            }
-        }
-
-    }//end of learning
-
-}
 
 
 void layer::Do_SegmentUpdate(){
@@ -504,8 +473,7 @@ void layer::Do_SegmentUpdate(){
         for(segment& dummysegment:(*itdummycell)->SegList){
             for(std::vector<SegmentUpdate>::iterator itDummyUpdate=dummysegment.SegmentUpdateList.begin();itDummyUpdate!=dummysegment.SegmentUpdateList.end();){
 
-                if(itDummyUpdate->timer>1){
-
+                if(itDummyUpdate->timer>0){
                     --itDummyUpdate->timer;
                     ++itDummyUpdate;
                     PendingExpectation.emplace_back(*itdummycell);
@@ -519,7 +487,6 @@ void layer::Do_SegmentUpdate(){
                         ++failure;
                     }
                     dummysegment.SegmentUpdateList.erase(itDummyUpdate);
-
                 }
             }
 
@@ -530,11 +497,8 @@ void layer::Do_SegmentUpdate(){
         }
         if(StayInCellUpdateList==false){
             CellUpdateList.erase(itdummycell);
-
         }else{
-
             ++itdummycell;
-
         }
     }
 
@@ -556,7 +520,7 @@ void segment::AdaptingSynapses(bool success, SegmentUpdate& ToBeUpdated){
                 if(success==true){
                     dummySynapse.second= std::min(static_cast<double>(1),dummySynapse.second+LearnIncrement);
                     if(Synapse.size()<synapses_per_segment){
-                        BlindSynapseAdding(ActivationCountdown-1);
+                        BlindSynapseAdding(ActivationCountdown);
                     }
                 }else{
                     dummySynapse.second= dummySynapse.second- LearnIncrement;
@@ -667,17 +631,15 @@ void layer::CellLearnInitiator(void){
     //and add a segment pointing to the active
     //cells of last round
 
-
-
-
-    for(column*& DummyColumn:TempActColumns){
+    for(column*& DummyColumn:ActColumns){
         if(DummyColumn->expect==true){
             //this function finds the segment that fits best the
             //activity of the last timestep with SequenceCounter==1
             //and also leads all the expecting Cells to activation
             for(size_t timer=0; timer<Three_CellActivityList.size();++timer){
+                //timer=0 means activity of cells of last round (cellactivity is not updated, yet)
                 segment* BestSegment=DummyColumn->BestMatchingSegmentInColumnActivateCells(timer);
-                BestSegment->SegmentUpdateList.emplace_back(BestSegment->GetActiveCells(timer),BestSegment->ActivationCountdown);
+                BestSegment->SegmentUpdateList.emplace_back(BestSegment->GetActiveCells(timer),0);
             }
         }
         else{
@@ -703,9 +665,6 @@ void layer::CellLearnInitiator(void){
 
         }
     }
-
-
-
 }
 
 
@@ -894,33 +853,18 @@ segment* cell::BestSegmentInCell(size_t t){
 
 
 
-
-void UpdateInitialiser(layer* DummyLayer){
-
-    DummyLayer->FindBestColumns();
-
-    double MaxActivity=DummyLayer->ActivityLogUpdateFindMaxActivity();
-    if(DummyLayer!=&DummyLayer->MotherBrain.LowestLayer){
-        DummyLayer->BoostingUpdate_StrenthenWeak( MaxActivity);
-    }
-    DummyLayer->CellExpectInitiator();
-
-    DummyLayer->CellLearnInitiator();
-
-}
-
 void ThreadUpdater(layer* DummyLayer){
     //execute pending updates for DummyLayer
     if(DummyLayer!=&DummyLayer->MotherBrain.LowestLayer){
         DummyLayer->ConnectedSynapsesUpdate();
     }
 
-    DummyLayer->ActiveColumnUpdater();
+    //DummyLayer->ActiveColumnUpdater();
 
     DummyLayer->CellUpdater();
 
 
-    DummyLayer->Do_SegmentUpdate();
+    //DummyLayer->Do_SegmentUpdate();
 
 }
 
@@ -1281,25 +1225,73 @@ void brain::update(){
     if(time%10==3&&time>400){
         std::cout<<"bla \n";
     }
-    Martin_Luther.HowStatic(10);
+    //Martin_Luther.HowStatic(10);
+
     {//create Threads only locally in here
+        //1. determine active columns
         if(multithreadding==true){
             std::vector<std::thread> Threads;
 
             Threads.reserve(layers_per_brain);
             for(layer*& DummyLayer:AllLevels){
-                Threads.emplace_back(UpdateInitialiser, DummyLayer);
+                Threads.emplace_back([](layer* TempLayer){TempLayer->FindBestColumns();}, DummyLayer);
             }
             for(size_t i=0;i<AllLevels.size();++i){
                 Threads[i].join();
             }
         }else{
             for(layer*& DummyLayer:AllLevels){
-                UpdateInitialiser(DummyLayer);
+                DummyLayer->FindBestColumns();
             }
         }
 
-    }//end of the first generation of threads
+    }
+
+    {//create Threads only locally in here
+        //2. activate those columns
+        if(multithreadding==true){
+            std::vector<std::thread> Threads;
+
+            Threads.reserve(layers_per_brain);
+            for(layer*& DummyLayer:AllLevels){
+                Threads.emplace_back([](layer* TempLayer){TempLayer->ActiveColumnUpdater();}, DummyLayer);
+            }
+            for(size_t i=0;i<AllLevels.size();++i){
+                Threads[i].join();
+            }
+        }else{
+            for(layer*& DummyLayer:AllLevels){
+                DummyLayer->ActiveColumnUpdater();
+            }
+        }
+
+    }
+
+    {//create Threads only locally in here
+        //3. determine activation for cells
+        if(multithreadding==true){
+            std::vector<std::thread> Threads;
+
+            Threads.reserve(layers_per_brain);
+            for(layer*& DummyLayer:AllLevels){
+                Threads.emplace_back([](layer* TempLayer){
+                                                TempLayer->ActivityLogUpdate();
+                                                TempLayer->CellExpectInitiator();
+                                                TempLayer->CellLearnInitiator();
+                }, DummyLayer);
+            }
+            for(size_t i=0;i<AllLevels.size();++i){
+                Threads[i].join();
+            }
+        }else{
+            for(layer*& DummyLayer:AllLevels){
+                DummyLayer->ActivityLogUpdate();
+                DummyLayer->CellExpectInitiator();
+                DummyLayer->CellLearnInitiator();
+            }
+        }
+
+    }
 
     if(max_activation_counter_change==true){
         ++max_activation_counter;
@@ -1307,7 +1299,7 @@ void brain::update(){
     }
 
     {//begin of 2nd generation of threads
-        //updates!
+        //4. updates!/{Do_SegmentUpdate}
          if(multithreadding==true){
             std::vector<std::thread> Threads;
             Threads.reserve(layers_per_brain);
@@ -1323,6 +1315,27 @@ void brain::update(){
              }
          }
     }
+
+    {//create Threads only locally in here
+        //5. Do_SegmentUpdate
+        if(multithreadding==true){
+            std::vector<std::thread> Threads;
+
+            Threads.reserve(layers_per_brain);
+            for(layer*& DummyLayer:AllLevels){
+                Threads.emplace_back([](layer* TempLayer){TempLayer->Do_SegmentUpdate();}, DummyLayer);
+            }
+            for(size_t i=0;i<AllLevels.size();++i){
+                Threads[i].join();
+            }
+        }else{
+            for(layer*& DummyLayer:AllLevels){
+                DummyLayer->Do_SegmentUpdate();
+            }
+        }
+
+    }
+
     //needs an extra loop due to interference
 
     //needs an extra loop due to interference
